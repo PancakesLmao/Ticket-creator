@@ -1,0 +1,453 @@
+@import "tailwindcss";
+
+:root {
+  --mx: 0.5;
+  --my: 0.5;
+  --rx: 0deg;
+  --ry: 0deg;
+  --flip: 0deg;
+  --hyp: 0;
+  --angle: 135deg;
+}
+
+* {
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: #060709;
+  color: #f8fafc;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  perspective: 1600px;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.font-mono-code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.font-display {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+/* Ambient stage background */
+.stage-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background:
+    radial-gradient(circle at calc(var(--mx) * 100%) calc(var(--my) * 100%), rgba(186, 210, 235, 0.12) 0%, rgba(56, 189, 248, 0.04) 28%, transparent 65%),
+    radial-gradient(circle at 50% 45%, #131720 0%, #060709 75%);
+  pointer-events: none;
+}
+
+.stage-grid {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 50%, black 25%, transparent 80%);
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, black 25%, transparent 80%);
+  pointer-events: none;
+}
+
+/* 3D Scene & Ticket Wrapper */
+.ticket-scene {
+  position: relative;
+  z-index: 10;
+  width: min(92vw, 860px);
+  height: 330px;
+  perspective: 1800px;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .ticket-scene {
+    height: 270px;
+    transform: scale(0.95);
+  }
+}
+
+@media (max-width: 580px) {
+  .ticket-scene {
+    width: 96vw;
+    height: 490px;
+  }
+}
+
+.ticket-3d-rig {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(calc(var(--ry) + var(--flip)));
+  transition: transform 0.08s cubic-bezier(0.2, 0.8, 0.2, 1);
+  will-change: transform;
+}
+
+.ticket-3d-rig.is-flipping {
+  transition: transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dynamic Floating Drop Shadow */
+.ticket-shadow {
+  position: absolute;
+  inset: 18px 24px;
+  border-radius: 24px;
+  background: rgba(0, 0, 0, 0.78);
+  filter: blur(36px);
+  transform: translateZ(-65px) translateX(calc((var(--mx) - 0.5) * -45px)) translateY(calc((var(--my) - 0.5) * -45px + 24px));
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+/* Front & Back Faces */
+.ticket-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+  /* Silver metallic brushed glass base */
+  background:
+    linear-gradient(
+      132deg,
+      rgba(235, 240, 247, 0.20) 0%,
+      rgba(165, 176, 192, 0.12) 25%,
+      rgba(220, 228, 238, 0.24) 48%,
+      rgba(120, 130, 145, 0.14) 72%,
+      rgba(210, 220, 232, 0.22) 100%
+    ),
+    rgba(30, 35, 44, 0.62);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.16),
+    inset 1px 0 1px rgba(255, 255, 255, 0.3),
+    inset -1px 0 1px rgba(255, 255, 255, 0.2),
+    0 20px 50px rgba(0, 0, 0, 0.5);
+  /* Boarding Pass Punch-out Notches at 71% X */
+  -webkit-mask-image:
+    radial-gradient(circle 16px at 71% 0%, transparent 15.5px, black 16.5px),
+    radial-gradient(circle 16px at 71% 100%, transparent 15.5px, black 16.5px);
+  -webkit-mask-composite: destination-in;
+  mask-image:
+    radial-gradient(circle 16px at 71% 0%, transparent 15.5px, black 16.5px),
+    radial-gradient(circle 16px at 71% 100%, transparent 15.5px, black 16.5px);
+  mask-composite: intersect;
+}
+
+@media (max-width: 580px) {
+  .ticket-face {
+    -webkit-mask-image:
+      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
+      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
+    mask-image:
+      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
+      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
+  }
+}
+
+.ticket-back {
+  transform: rotateY(180deg);
+  /* Flip notch position to 29% on the back so it aligns physically in 3D space with 71% on the front! */
+  -webkit-mask-image:
+    radial-gradient(circle 16px at 29% 0%, transparent 15.5px, black 16.5px),
+    radial-gradient(circle 16px at 29% 100%, transparent 15.5px, black 16.5px);
+  mask-image:
+    radial-gradient(circle 16px at 29% 0%, transparent 15.5px, black 16.5px),
+    radial-gradient(circle 16px at 29% 100%, transparent 15.5px, black 16.5px);
+}
+
+@media (max-width: 580px) {
+  .ticket-back {
+    -webkit-mask-image:
+      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
+      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
+    mask-image:
+      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
+      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
+  }
+}
+
+/* Brushed Anodized Silver Micro-Grain Texture */
+.brushed-metal-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.28;
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.06) 0px,
+      rgba(255, 255, 255, 0.06) 1px,
+      transparent 1px,
+      transparent 3px
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(0, 0, 0, 0.05) 1px,
+      transparent 2px
+    );
+  mix-blend-mode: overlay;
+}
+
+/* Fine Laser Etched Guilloche Security Pattern */
+.security-pattern {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.14;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.45) 0.75px, transparent 0.75px);
+  background-size: 12px 12px;
+}
+
+/* Dynamic Glass Specular Reflection Overlay */
+.glass-glare {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  z-index: 20;
+  background:
+    radial-gradient(
+      circle 340px at calc(var(--mx) * 100%) calc(var(--my) * 100%),
+      rgba(255, 255, 255, 0.42) 0%,
+      rgba(225, 238, 255, 0.18) 32%,
+      rgba(255, 255, 255, 0.03) 58%,
+      transparent 75%
+    ),
+    linear-gradient(
+      calc(115deg + (var(--mx) - 0.5) * 50deg),
+      transparent 20%,
+      rgba(255, 255, 255, 0.06) 38%,
+      rgba(255, 255, 255, 0.34) 48%,
+      rgba(220, 238, 255, 0.48) 50%,
+      rgba(255, 255, 255, 0.30) 52%,
+      rgba(255, 255, 255, 0.05) 62%,
+      transparent 80%
+    );
+  background-position: calc((var(--mx) - 0.5) * 160px) calc((var(--my) - 0.5) * 160px);
+  mix-blend-mode: soft-light;
+  transition: opacity 0.2s ease;
+}
+
+/* Crisp Anisotropic Silver Sheen */
+.silver-sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 21;
+  background: radial-gradient(
+    circle 240px at calc(var(--mx) * 100%) calc(var(--my) * 100%),
+    rgba(255, 255, 255, 0.22),
+    transparent 68%
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Specular Rim Border Highlight following mouse */
+.specular-rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 22px;
+  padding: 1.5px;
+  pointer-events: none;
+  z-index: 25;
+  background:
+    radial-gradient(
+      380px circle at calc(var(--mx) * 100%) calc(var(--my) * 100%),
+      rgba(255, 255, 255, 0.95) 0%,
+      rgba(195, 225, 255, 0.55) 35%,
+      rgba(255, 255, 255, 0.14) 70%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Rainbow Laser Holographic Foil Strip */
+.holo-foil-strip {
+  position: relative;
+  overflow: hidden;
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.18) 0px,
+      rgba(255, 255, 255, 0.18) 2px,
+      transparent 2px,
+      transparent 6px
+    ),
+    linear-gradient(
+      calc(115deg + (var(--mx) * 120deg) + (var(--my) * 60deg)),
+      #ff2a85 0%,
+      #ff8a00 14%,
+      #ffe600 28%,
+      #14f195 42%,
+      #00d2ff 56%,
+      #7b42f6 70%,
+      #ff2a85 85%,
+      #00f0ff 100%
+    );
+  background-size: 100% 100%, 260% 260%;
+  background-position: 0 0, calc(var(--mx) * 100%) calc(var(--my) * 100%);
+  box-shadow:
+    inset 0 0 10px rgba(255, 255, 255, 0.55),
+    0 0 18px rgba(0, 210, 255, 0.2);
+}
+
+.holo-foil-strip::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle 120px at calc(var(--mx) * 100%) calc(var(--my) * 100%),
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.2) 45%,
+    transparent 75%
+  );
+  mix-blend-mode: overlay;
+}
+
+/* Iridescent Holographic Text / Badge Accent */
+.holo-badge {
+  background: linear-gradient(
+    calc(90deg + (var(--mx) * 180deg)),
+    #e2e8f0 0%,
+    #f9a8d4 20%,
+    #fde047 40%,
+    #6ee7b7 60%,
+    #7dd3fc 80%,
+    #c4b5fd 100%
+  );
+  background-size: 200% 200%;
+  background-position: calc(var(--mx) * 100%) calc(var(--my) * 100%);
+}
+
+/* Metallic Stamped Typography */
+.silver-text-emboss {
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #e2e8f0 48%,
+    #94a3b8 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+/* Perforated Tear Divider Line */
+.perforation-line-front {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 71%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
+  background-size: 2px 10px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.perforation-line-back {
+  position: absolute;
+  top: 18px;
+  bottom: 18px;
+  left: 29%;
+  width: 2px;
+  transform: translateX(-50%);
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
+  background-size: 2px 10px;
+  z-index: 15;
+  pointer-events: none;
+}
+
+@media (max-width: 580px) {
+  .perforation-line-front,
+  .perforation-line-back {
+    top: 68%;
+    bottom: auto;
+    left: 18px;
+    right: 18px;
+    width: auto;
+    height: 2px;
+    transform: translateY(-50%);
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
+    background-size: 10px 2px;
+  }
+}
+
+/* Micro-text laser border */
+.micro-text-strip {
+  font-size: 6.5px;
+  letter-spacing: 0.26em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  color: rgba(226, 232, 240, 0.42);
+  text-transform: uppercase;
+}
+
+/* Logo Placeholder Box on Back */
+.logo-template-zone {
+  position: relative;
+  border: 1.5px dashed rgba(226, 232, 240, 0.45);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+  box-shadow:
+    inset 0 1px 12px rgba(255, 255, 255, 0.08),
+    0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.logo-template-zone:hover {
+  border-color: rgba(255, 255, 255, 0.8);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.04) 100%);
+}
+
+/* Laser Scanline subtle animation */
+@keyframes scanline {
+  0% { transform: translateY(-100%); opacity: 0; }
+  40% { opacity: 0.35; }
+  60% { opacity: 0.35; }
+  100% { transform: translateY(400%); opacity: 0; }
+}
+
+.laser-scan-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 40px;
+  background: linear-gradient(to bottom, transparent, rgba(186, 230, 253, 0.12), rgba(255, 255, 255, 0.28), transparent);
+  pointer-events: none;
+  z-index: 12;
+  animation: scanline 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
