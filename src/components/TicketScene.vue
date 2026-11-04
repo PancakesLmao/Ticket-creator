@@ -56,9 +56,6 @@ defineExpose({
     @touchend="onTouchEnd"
   >
     <div class="ticket-3d-rig" :class="{ 'is-flipping': isFlipping }">
-      <!-- Dynamic Floating Shadow -->
-      <div class="ticket-shadow"></div>
-
       <!-- Front Side -->
       <TicketFront />
 
@@ -67,4 +64,3 @@ defineExpose({
     </div>
   </main>
 </template>
-

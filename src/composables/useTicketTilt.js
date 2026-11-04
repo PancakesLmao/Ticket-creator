@@ -28,13 +28,10 @@ export function useTicketTilt(targetElementRef, isFlippedRef) {
     currentMy += (targetMy - currentMy) * 0.14
 
     const tiltX = (0.5 - currentMy) * (MAX_TILT_X * 2)
-    const directionMultiplier = isFlippedRef.value ? -1 : 1
-    const tiltY = (currentMx - 0.5) * (MAX_TILT_Y * 2) * directionMultiplier
-
-    const effectiveMx = isFlippedRef.value ? 1 - currentMx : currentMx
+    const tiltY = (currentMx - 0.5) * (MAX_TILT_Y * 2)
 
     const root = document.documentElement
-    root.style.setProperty('--mx', effectiveMx.toFixed(4))
+    root.style.setProperty('--mx', currentMx.toFixed(4))
     root.style.setProperty('--my', currentMy.toFixed(4))
     root.style.setProperty('--rx', `${tiltX.toFixed(2)}deg`)
     root.style.setProperty('--ry', `${tiltY.toFixed(2)}deg`)
