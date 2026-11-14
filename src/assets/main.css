@@ -16,6 +16,12 @@
   -webkit-user-select: none;
 }
 
+input,
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -82,6 +88,147 @@ body {
   cursor: pointer;
 }
 
+.ticket-scene.is-canvas-mode {
+  cursor: default;
+}
+
+.ticket-scene.is-canvas-mode.has-custom-bg {
+  cursor: grab;
+}
+
+.ticket-scene.is-canvas-mode.is-dragging-bg {
+  cursor: grabbing;
+}
+
+.is-width-resized {
+  flex: none !important;
+  max-width: none !important;
+}
+
+.is-width-resized .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  overflow-wrap: break-word;
+}
+
+@layer components {
+  .canvas-draggable {
+    cursor: grab;
+    touch-action: none;
+    border-radius: 8px;
+    transition: outline-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .canvas-draggable:hover {
+    outline: 1px dashed rgba(255, 255, 255, 0.35);
+    outline-offset: 4px;
+  }
+
+  .canvas-draggable.is-layer-hovered {
+    outline: 1.5px solid rgba(56, 189, 248, 0.9);
+    outline-offset: 4px;
+    background-color: rgba(56, 189, 248, 0.08);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  }
+
+  .canvas-draggable.is-grouped:hover {
+    outline-color: rgba(167, 139, 250, 0.7);
+  }
+
+  .canvas-draggable.is-selected {
+    outline: 1.5px solid rgba(34, 211, 238, 0.92);
+    outline-offset: 4px;
+    background-color: rgba(34, 211, 238, 0.08);
+  }
+
+  .canvas-draggable.is-selected.is-grouped {
+    outline-color: rgba(167, 139, 250, 0.95);
+    background-color: rgba(139, 92, 246, 0.1);
+  }
+
+  .canvas-draggable.is-locked {
+    cursor: not-allowed;
+  }
+
+  .canvas-draggable.is-dragging {
+    cursor: grabbing;
+    outline: 1.5px solid rgba(34, 211, 238, 0.95);
+    outline-offset: 4px;
+    background-color: rgba(34, 211, 238, 0.1);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-draggable:hover {
+    outline-color: rgba(15, 23, 42, 0.32);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-draggable.is-layer-hovered {
+    outline-color: rgba(2, 132, 199, 0.95);
+    background-color: rgba(2, 132, 199, 0.08);
+    box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.14);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-draggable.is-selected {
+    outline-color: rgba(2, 132, 199, 0.95);
+    background-color: rgba(2, 132, 199, 0.08);
+  }
+
+  .canvas-editable {
+    cursor: grab;
+    border-radius: 5px;
+    outline: 1px dashed rgba(255, 255, 255, 0.16);
+    outline-offset: 2px;
+    transition: outline-color 0.15s ease, background-color 0.15s ease;
+  }
+
+  .canvas-draggable.is-selected:not(.is-dragging) .canvas-editable {
+    cursor: text;
+  }
+
+  .canvas-draggable.is-dragging .canvas-editable {
+    cursor: grabbing;
+  }
+
+  .canvas-draggable.is-locked .canvas-editable {
+    cursor: not-allowed;
+  }
+
+  .canvas-editable:hover {
+    outline: 1.5px dashed rgba(34, 211, 238, 0.85);
+    background-color: rgba(34, 211, 238, 0.08);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-editable {
+    outline-color: rgba(15, 23, 42, 0.2);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-editable:hover {
+    outline-color: rgba(2, 132, 199, 0.85);
+    background-color: rgba(2, 132, 199, 0.08);
+  }
+
+  .canvas-editable-input {
+    width: 100%;
+    min-width: 2.5ch;
+    background: rgba(15, 23, 42, 0.9);
+    color: #ffffff;
+    -webkit-text-fill-color: currentColor;
+    border: 1.5px solid rgba(34, 211, 238, 0.9);
+    border-radius: 6px;
+    padding: 1px 6px;
+    outline: none;
+    user-select: text;
+    -webkit-user-select: text;
+    box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.2);
+  }
+
+  .ticket-face.ticket-light-mode .canvas-editable-input {
+    background: rgba(255, 255, 255, 0.92);
+    color: #0f172a;
+    -webkit-text-fill-color: currentColor;
+  }
+}
+
 @media (max-width: 720px) {
   .ticket-scene {
     height: 270px;
@@ -89,7 +236,7 @@ body {
   }
 }
 
-@media (max-width: 580px) {
+@media (max-width: 639px) {
   .ticket-scene {
     width: 96vw;
     height: 490px;
@@ -163,7 +310,7 @@ body {
   mask-composite: intersect;
 }
 
-@media (max-width: 580px) {
+@media (max-width: 639px) {
   .ticket-face {
     -webkit-mask-image:
       radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
@@ -189,7 +336,7 @@ body {
     radial-gradient(circle 16px at 29% 100%, transparent 15.5px, black 16.5px);
 }
 
-@media (max-width: 580px) {
+@media (max-width: 639px) {
   .ticket-back {
     -webkit-mask-image:
       radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
@@ -205,7 +352,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
   opacity: 0.28;
   background-image:
     repeating-linear-gradient(
@@ -229,7 +376,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 1;
+  z-index: 0;
   opacity: 0.14;
   background-image: radial-gradient(rgba(255, 255, 255, 0.45) 0.75px, transparent 0.75px);
   background-size: 12px 12px;
@@ -244,7 +391,7 @@ body {
   background-repeat: no-repeat;
   mix-blend-mode: overlay;
   pointer-events: none;
-  z-index: 5;
+  z-index: 0;
   transition: opacity 0.3s ease;
 }
 
@@ -253,7 +400,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 5;
+  z-index: 0;
   mix-blend-mode: normal;
   transition: background-color 0.3s ease, opacity 0.3s ease;
 }
@@ -281,7 +428,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 6;
+  z-index: 0;
   background:
     linear-gradient(
       132deg,
@@ -390,6 +537,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   content: '';
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background: radial-gradient(
     circle 120px at calc(var(--card-mx) * 100%) calc(var(--my) * 100%),
     rgba(255, 255, 255, 0.9),
@@ -431,7 +579,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 .ticket-face.ticket-light-mode {
   color: #0f172a;
 }
-.ticket-face.ticket-light-mode .text-white {
+.ticket-face.ticket-light-mode .text-white:not([data-foil-text]) {
   color: #0f172a !important;
 }
 .ticket-face.ticket-light-mode .text-slate-200,
@@ -471,7 +619,7 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   transform: translateX(-50%);
   background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
   background-size: 2px 10px;
-  z-index: 15;
+  z-index: 8;
   pointer-events: none;
 }
 
@@ -484,11 +632,11 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   transform: translateX(-50%);
   background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
   background-size: 2px 10px;
-  z-index: 15;
+  z-index: 8;
   pointer-events: none;
 }
 
-@media (max-width: 580px) {
+@media (max-width: 639px) {
   .perforation-line-front,
   .perforation-line-back {
     top: 68%;

@@ -1,453 +1,256 @@
 <script setup>
+import { computed } from 'vue'
+import { ticketTextBoxes } from '../models/ticketTextBoxes.js'
 import TicketGlassLayers from './TicketGlassLayers.vue'
+import EditableText from './EditableText.vue'
+import CanvasDraggable from './CanvasDraggable.vue'
+import TicketEmblem from './TicketEmblem.vue'
+import TicketRouteLine from './TicketRouteLine.vue'
+import CustomCanvasLayers from './CustomCanvasLayers.vue'
 import { useTicketData } from '../composables/useTicketData.js'
+import { useCanvasDrag } from '../composables/useCanvasDrag.js'
 
 defineProps({
-  originCode: { type: String, default: 'TYO' },
-  originName: { type: String, default: 'NEO-TOKYO TERMINAL' },
-  destCode: { type: String, default: 'ZRH' },
-  destName: { type: String, default: 'ZURICH SKYPORT' },
-  flightNumber: { type: String, default: 'AX-2049' },
-  flightTransit: { type: String, default: 'NON-STOP • ORBITAL TRANSIT' },
-  ticketClass: { type: String, default: 'CLASS // S-01' },
-  passengerName: { type: String, default: 'TEMPLATE // USER' },
-  gate: { type: String, default: 'G-08' },
-  boardingTime: { type: String, default: '21:45 UTC' },
-  seat: { type: String, default: '04A // VIP' },
-  seatStub: { type: String, default: '04A' },
-  seqNumber: { type: String, default: '#0042' },
-  authCode: { type: String, default: 'AUTH-0994-X' },
+  isFlipped: {
+    type: Boolean,
+    default: false,
+  },
 })
 
-const { ticket, activePresetKey, isLightBg, customLogoUrl, foilMode, foilStyles } = useTicketData()
+const { ticket, isLightBg, foilMode, foilStyles } = useTicketData()
+const { layerState, isAnyLayerVisible } = useCanvasDrag()
+
+const FOIL_LAYER_IDS = ['front-foil-top', 'front-foil-bottom']
+const HEADLINE_LAYER_IDS = [
+  'front-hero-label',
+  'front-headline-name',
+  'front-subtitle',
+  'front-honors',
+]
+const ROUTE_LAYER_IDS = ['front-origin', 'front-route-line', 'front-dest']
+const INFO_GRID_LAYER_IDS = [
+  'front-meta-venue',
+  'front-meta-date',
+  'front-meta-time',
+  'front-meta-doors',
+]
+
+const showFoilStrip = computed(() => isAnyLayerVisible(FOIL_LAYER_IDS))
+const showHeadlineZone = computed(() => isAnyLayerVisible(HEADLINE_LAYER_IDS))
+const showRouteZone = computed(() => isAnyLayerVisible(ROUTE_LAYER_IDS))
+const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
 </script>
 
 <template>
-  <section class="ticket-face ticket-front flex flex-col sm:flex-row" :class="{ 'ticket-light-mode': isLightBg }">
+  <section
+    class="ticket-face ticket-front flex flex-col sm:flex-row"
+    :class="{ 'ticket-light-mode': isLightBg, 'pointer-events-none': isFlipped }"
+    :inert="isFlipped"
+  >
     <TicketGlassLayers />
     <div class="perforation-line-front"></div>
 
-    <!-- Commencement Preset Layout -->
-    <template v-if="activePresetKey === 'commencement'">
-      <!-- Left Rainbow Holographic Foil Strip -->
-      <div
-        class="w-full h-5 sm:w-7 sm:h-full shrink-0 flex sm:flex-col items-center justify-between py-1 px-3 sm:py-4 sm:px-0 z-10 border-b sm:border-b-0 sm:border-r border-white/30 transition-all duration-300"
-        :class="foilMode === 'rainbow' ? 'holo-foil-strip' : ''"
-        :style="foilStyles.stripStyle"
-      >
-        <span
-          class="font-mono-code text-[8px] font-bold tracking-[0.25em] sm:[writing-mode:vertical-rl] sm:rotate-180 uppercase"
-          :class="foilStyles.textColor"
+    <!-- Left Holographic Foil Strip (Auto-collapses when all foil layers removed) -->
+    <div
+      v-if="showFoilStrip"
+      class="w-full h-5 sm:w-7 sm:h-full shrink-0 flex sm:flex-col items-center justify-between py-1 px-3 sm:py-4 sm:px-0 z-[9] border-b sm:border-b-0 sm:border-r border-white/30 transition-all duration-300"
+      :class="foilMode === 'rainbow' ? 'holo-foil-strip' : ''"
+      :style="foilStyles.stripStyle"
+    >
+      <CanvasDraggable block-id="front-foil-top" class="min-w-0 flex items-center justify-center">
+        <EditableText
+          :box="ticketTextBoxes.holoStatus"
+          :text-class="foilStyles.textColor"
+        />
+      </CanvasDraggable>
+      <CanvasDraggable block-id="front-foil-bottom" class="min-w-0 flex items-center justify-center">
+        <EditableText
+          :box="ticketTextBoxes.foilSubStatus"
+          :text-class="foilStyles.textColor"
+        />
+      </CanvasDraggable>
+    </div>
+
+    <!-- Main Body (~68% width) -->
+    <div class="relative flex-1 flex flex-col justify-between p-5 sm:p-6 sm:pr-7 min-w-0">
+      <!-- Header Row -->
+      <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
+        <div class="flex items-center gap-2.5 min-w-0 flex-1 h-full">
+          <CanvasDraggable block-id="front-emblem" class="h-full flex items-center shrink-0">
+            <TicketEmblem variant="header" />
+          </CanvasDraggable>
+
+          <div class="min-w-0 flex-1 flex flex-col">
+            <CanvasDraggable block-id="front-issuer" class="min-w-0">
+              <EditableText :box="ticketTextBoxes.institutionName" />
+            </CanvasDraggable>
+            <CanvasDraggable block-id="front-title" class="min-w-0">
+              <EditableText :box="ticketTextBoxes.ceremonyTitle" />
+            </CanvasDraggable>
+          </div>
+        </div>
+
+        <CanvasDraggable
+          block-id="front-badge"
+          class="flex items-center gap-2 shrink-0"
         >
-          {{ ticket.holoStatus }}
-        </span>
-        <svg class="w-3.5 h-3.5" :class="foilStyles.textColor" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2L12 2Z" />
-        </svg>
-        <span
-          class="font-mono-code text-[8px] font-bold tracking-[0.25em] sm:[writing-mode:vertical-rl] sm:rotate-180"
-          :class="foilStyles.textColor"
-        >
-          {{ ticket.ticketNumber }}
-        </span>
-      </div>
-
-      <!-- Main Body (Left ~68% width) -->
-      <div class="relative z-10 flex-1 flex flex-col justify-between p-5 sm:p-6 sm:pr-7" style="flex-basis: 68%;">
-        <!-- Header Row -->
-        <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
-          <div class="flex items-center gap-2.5 min-w-0 h-full">
-            <!-- University Icon or Custom Logo -->
-            <div
-              v-if="customLogoUrl"
-              class="h-full flex items-center shrink-0"
-            >
-              <img
-                :src="customLogoUrl"
-                alt="Logo"
-                class="h-full w-auto max-w-[140px] object-contain"
-              />
-            </div>
-            <div
-              v-else
-              class="w-8 h-8 rounded-lg bg-white/10 border border-white/25 flex items-center justify-center shadow-inner shrink-0 overflow-hidden"
-            >
-              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 3L1 9L12 15L21 10.09V17H23V9M5 13.18V17.18L12 21L19 17.18V13.18L12 17L5 13.18Z" />
-              </svg>
-            </div>
-            <div class="min-w-0">
-              <div class="text-[10px] font-mono-code tracking-[0.25em] text-slate-300/80 uppercase truncate">
-                {{ ticket.institutionName }}
-              </div>
-              <div class="text-sm font-display font-bold tracking-wider text-white truncate">
-                {{ ticket.ceremonyTitle }}
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 shrink-0">
-            <span
-              class="font-mono-code text-[10px] font-bold px-2.5 py-0.5 rounded-md tracking-wider shadow-sm transition-all duration-300"
-              :class="[
-                foilMode === 'rainbow' ? 'holo-badge text-slate-950' : '',
-                foilStyles.textColor
-              ]"
-              :style="foilStyles.badgeStyle"
-            >
-              {{ ticket.classYear }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Center: Graduate Info -->
-        <div class="my-auto py-2">
-          <div class="text-[10px] font-mono-code uppercase tracking-widest text-slate-300/75">
-            CANDIDATE FOR CONFERRAL
-          </div>
-          <div class="text-2xl sm:text-3xl font-display font-bold tracking-tight silver-text-emboss leading-none mt-1 truncate">
-            {{ ticket.graduateName }}
-          </div>
-          <div class="text-xs sm:text-sm font-mono-code font-medium mt-1.5 truncate">
-            <span :style="{ color: ticket.degreeColor || '#a5f3fc' }">{{ ticket.degreeMajor }}</span>
-            <span class="text-slate-400 mx-1.5">•</span>
-            <span :style="{ color: ticket.honorsColor || '#fef08a' }">{{ ticket.honors }}</span>
-          </div>
-        </div>
-
-        <!-- Center: Event Metadata Grid -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/15">
-          <div class="min-w-0">
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">VENUE</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white truncate mt-0.5" :title="ticket.venueName">
-              {{ ticket.venueName }}
-            </div>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">DATE</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white truncate mt-0.5">
-              {{ ticket.eventDate }}
-            </div>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">START TIME</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white truncate mt-0.5">
-              {{ ticket.ceremonyTime }}
-            </div>
-          </div>
-          <div class="min-w-0">
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">DOORS</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white truncate mt-0.5">
-              {{ ticket.doorsTime }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer: Security Notice -->
-        <div class="micro-text-strip mt-2.5 pt-1.5 border-t border-white/10 truncate uppercase">
-          {{ ticket.securityNotice }}
-        </div>
-      </div>
-
-      <!-- Stub (Right ~29% width) -->
-      <div
-        class="relative z-10 flex flex-col justify-between p-5 sm:p-6 sm:pl-7 bg-white/[0.03]"
-        style="flex-basis: 29%;"
-      >
-        <div class="h-12 flex items-center justify-between border-b border-white/15 pb-3">
-          <div class="min-w-0 pr-2">
-            <div class="text-[9px] font-mono-code tracking-[0.22em] text-slate-300/75 uppercase">ADMIT PASS</div>
-            <div class="text-xs font-display font-bold tracking-wider text-white truncate">{{ ticket.ticketType }}</div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-1 gap-2 my-auto py-2">
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">SECTION</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.section }}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">ROW</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.row }}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">SEAT</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.seat }}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">TICKET NO.</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.ticketNumber }}</span>
-          </div>
-        </div>
-
-        <!-- Mini Laser Barcode on Front Stub -->
-        <div class="pt-2">
-          <div class="w-full h-8 rounded bg-white/90 px-2 py-1 flex items-center justify-between shadow-inner">
-            <svg class="w-full h-full" viewBox="0 0 180 28" preserveAspectRatio="none">
-              <g fill="#0f172a">
-                <rect x="0" y="0" width="3" height="28" />
-                <rect x="6" y="0" width="1.5" height="28" />
-                <rect x="10" y="0" width="4" height="28" />
-                <rect x="17" y="0" width="2" height="28" />
-                <rect x="22" y="0" width="1.5" height="28" />
-                <rect x="27" y="0" width="5" height="28" />
-                <rect x="35" y="0" width="2" height="28" />
-                <rect x="40" y="0" width="3" height="28" />
-                <rect x="46" y="0" width="1.5" height="28" />
-                <rect x="51" y="0" width="4" height="28" />
-                <rect x="58" y="0" width="2.5" height="28" />
-                <rect x="64" y="0" width="1.5" height="28" />
-                <rect x="69" y="0" width="5" height="28" />
-                <rect x="77" y="0" width="2" height="28" />
-                <rect x="82" y="0" width="3.5" height="28" />
-                <rect x="89" y="0" width="1.5" height="28" />
-                <rect x="94" y="0" width="4" height="28" />
-                <rect x="101" y="0" width="2" height="28" />
-                <rect x="106" y="0" width="3" height="28" />
-                <rect x="112" y="0" width="5" height="28" />
-                <rect x="120" y="0" width="1.5" height="28" />
-                <rect x="125" y="0" width="3" height="28" />
-                <rect x="131" y="0" width="2" height="28" />
-                <rect x="136" y="0" width="4.5" height="28" />
-                <rect x="144" y="0" width="1.5" height="28" />
-                <rect x="149" y="0" width="3" height="28" />
-                <rect x="155" y="0" width="2" height="28" />
-                <rect x="160" y="0" width="5" height="28" />
-                <rect x="168" y="0" width="1.5" height="28" />
-                <rect x="173" y="0" width="3" height="28" />
-                <rect x="178" y="0" width="2" height="28" />
-              </g>
-            </svg>
-          </div>
-        </div>
-      </div>
-    </template>
-
-    <!-- Boarding Pass Preset Layout -->
-    <template v-else-if="activePresetKey === 'boarding_pass'">
-      <!-- Left Rainbow Holographic Foil Strip (Horizontal Desktop / Top Mobile) -->
-      <div
-        class="w-full h-5 sm:w-7 sm:h-full shrink-0 flex sm:flex-col items-center justify-between py-1 px-3 sm:py-4 sm:px-0 z-10 border-b sm:border-b-0 sm:border-r border-white/30 transition-all duration-300"
-        :class="foilMode === 'rainbow' ? 'holo-foil-strip' : ''"
-        :style="foilStyles.stripStyle"
-      >
-        <span
-          class="font-mono-code text-[8px] font-bold tracking-[0.25em] sm:[writing-mode:vertical-rl] sm:rotate-180"
-          :class="foilStyles.textColor"
-        >
-          {{ ticket.holoStatus || 'HOLOGRAPHIC // LASER SECURED' }}
-        </span>
-        <svg class="w-3.5 h-3.5" :class="foilStyles.textColor" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2L14.8 9.2L22 12L14.8 14.8L12 22L9.2 14.8L2 12L9.2 9.2L12 2Z" />
-        </svg>
-        <span
-          class="font-mono-code text-[8px] font-bold tracking-[0.25em] sm:[writing-mode:vertical-rl] sm:rotate-180"
-          :class="foilStyles.textColor"
-        >
-          {{ ticket.securityNotice?.split(' • ')[0] || authCode }}
-        </span>
-      </div>
-
-      <!-- Main Boarding Pass Body (Left ~68% width) -->
-      <div class="relative z-10 flex-1 flex flex-col justify-between p-5 sm:p-6 sm:pr-7" style="flex-basis: 68%;">
-        <!-- Header Row -->
-        <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
-          <div class="flex items-center gap-2.5 h-full">
-            <!-- Etched Vector Emblem or Custom Logo -->
-            <div
-              v-if="customLogoUrl"
-              class="h-full flex items-center shrink-0"
-            >
-              <img
-                :src="customLogoUrl"
-                alt="Logo"
-                class="h-full w-auto max-w-[140px] object-contain"
-              />
-            </div>
-            <div
-              v-else
-              class="w-8 h-8 rounded-lg bg-white/10 border border-white/25 flex items-center justify-center shadow-inner shrink-0 overflow-hidden"
-            >
-              <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 2L11 13" stroke-linecap="round" stroke-linejoin="round" />
-                <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
-            </div>
-            <div>
-              <div class="text-[10px] font-mono-code tracking-[0.25em] text-slate-300/80 uppercase">
-                {{ ticket.institutionName || 'AERO // LASER PASS' }}
-              </div>
-              <div class="text-sm font-display font-bold tracking-wider text-white">
-                {{ ticket.honors ? `${ticket.honors} • SILVER EDITION` : 'SILVER EDITION • PRIORITY' }}
-              </div>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span
-              class="font-mono-code text-[10px] font-bold px-2.5 py-0.5 rounded-md tracking-wider shadow-sm transition-all duration-300"
-              :class="[
-                foilMode === 'rainbow' ? 'holo-badge text-slate-950' : '',
-                foilStyles.textColor
-              ]"
-              :style="foilStyles.badgeStyle"
-            >
-              {{ ticket.classYear || ticketClass }}
-            </span>
-          </div>
-        </div>
-
-        <!-- Route & Flight Origin / Destination -->
-        <div class="my-auto py-3 grid grid-cols-7 items-center gap-2">
-          <div class="col-span-2">
-            <div class="text-[10px] font-mono-code uppercase tracking-widest text-slate-300/75">ORIGIN // SECTOR</div>
-            <div class="text-3xl sm:text-4xl font-display font-bold tracking-tight silver-text-emboss leading-none mt-0.5">
-              {{ originCode }}
-            </div>
-            <div class="text-[11px] text-slate-300/80 font-medium mt-1 truncate">{{ ticket.venueName || originName }}</div>
-          </div>
-
-          <!-- Laser Flight Path Graphic -->
-          <div class="col-span-3 flex flex-col items-center justify-center px-2">
-            <div
-              class="text-[10px] font-mono-code tracking-[0.22em] mb-1"
-              :style="{ color: ticket.degreeColor || '#a5f3fc' }"
-            >
-              {{ ticket.degreeMajor ? ticket.degreeMajor : `FLIGHT // ${flightNumber}` }}
-            </div>
-            <div class="w-full flex items-center gap-1.5">
-              <span class="w-2 h-2 rounded-full border border-white/70 bg-white/20"></span>
-              <div class="flex-1 h-[1.5px] bg-gradient-to-r from-white/20 via-white/80 to-white/20 relative"></div>
-              <svg class="w-4 h-4 text-white shrink-0" viewBox="0 0 24 24" fill="currentColor">
-                <path
-                  d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"
-                  transform="rotate(90 12 12)"
-                />
-              </svg>
-              <div class="flex-1 h-[1.5px] bg-gradient-to-r from-white/20 via-white/80 to-white/20"></div>
-              <span class="w-2 h-2 rounded-full bg-white shadow-[0_0_8px_#fff]"></span>
-            </div>
-            <div class="text-[9px] font-mono-code tracking-[0.2em] text-slate-300/70 mt-1">
-              {{ ticket.ceremonyTitle || flightTransit }}
-            </div>
-          </div>
-
-          <div class="col-span-2 text-right">
-            <div class="text-[10px] font-mono-code uppercase tracking-widest text-slate-300/75">DEST // SECTOR</div>
-            <div class="text-3xl sm:text-4xl font-display font-bold tracking-tight silver-text-emboss leading-none mt-0.5">
-              {{ destCode }}
-            </div>
-            <div class="text-[11px] text-slate-300/80 font-medium mt-1 truncate">{{ ticket.venueAddress || destName }}</div>
-          </div>
-        </div>
-
-        <!-- Passenger & Gate Metadata Grid -->
-        <div class="grid grid-cols-4 gap-3 pt-3 border-t border-white/15">
-          <div class="col-span-2 sm:col-span-1">
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">PASSENGER</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white truncate mt-0.5">
-              {{ ticket.graduateName || passengerName }}
-            </div>
-          </div>
-          <div>
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">GATE</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white mt-0.5">
-              {{ ticket.doorsTime ? ticket.doorsTime.replace('GATE ', '') : gate }}
-            </div>
-          </div>
-          <div>
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">BOARDING</div>
-            <div class="text-xs sm:text-sm font-mono-code font-semibold text-white mt-0.5">
-              {{ ticket.ceremonyTime || boardingTime }}
-            </div>
-          </div>
-          <div>
-            <div class="text-[9px] font-mono-code uppercase tracking-widest text-slate-300/70">SEAT</div>
-            <div class="text-xs sm:text-sm font-mono-code font-bold text-white mt-0.5">
-              {{ ticket.seat?.includes('VIP') ? ticket.seat : (ticket.seat ? `${ticket.seat} // VIP` : seat) }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Laser Etched Micro-Text Security Footer -->
-        <div class="micro-text-strip mt-2.5 pt-1.5 border-t border-white/10">
-          {{ ticket.securityNotice || 'LASER-ETCHED SILVER GLASS PASS • TEMPLATE CREDENTIAL • UNAUTHORIZED DUPLICATION PROHIBITED • SERIES 884-AERO-X •' }}
-        </div>
-      </div>
-
-      <!-- Tear-Off Boarding Stub (Right ~29% width) -->
-      <div
-        class="relative z-10 flex flex-col justify-between p-5 sm:p-6 sm:pl-7 bg-white/[0.03]"
-        style="flex-basis: 29%;"
-      >
-        <div class="h-12 flex items-center justify-between border-b border-white/15 pb-3">
-          <div>
-            <div class="text-[9px] font-mono-code tracking-[0.22em] text-slate-300/75 uppercase">BOARDING STUB</div>
-            <div class="text-xs font-display font-bold tracking-wider text-white">{{ originCode }} → {{ destCode }}</div>
-          </div>
           <span
-            class="px-2 py-0.5 rounded text-[10px] font-mono-code font-semibold bg-white/15 text-white border border-white/20"
+            data-foil-text
+            class="font-mono-code text-[10px] font-bold px-2.5 py-0.5 rounded-md tracking-wider shadow-sm transition-all duration-300"
+            :class="[foilMode === 'rainbow' ? 'holo-badge text-slate-950' : '', foilStyles.textColor]"
+            :style="foilStyles.badgeStyle"
           >
-            {{ ticket.seat || seatStub }}
+            <EditableText :box="ticketTextBoxes.classYear" />
           </span>
+        </CanvasDraggable>
+      </div>
+
+      <!-- Center Zone: Granular Headline & Route Blocks -->
+      <div
+        v-if="showHeadlineZone || showRouteZone"
+        class="my-auto flex flex-col justify-center min-h-0 min-w-0"
+        :class="showHeadlineZone && showRouteZone ? 'gap-1 py-0.5' : 'py-2'"
+      >
+        <div v-if="showHeadlineZone" class="min-w-0">
+          <CanvasDraggable block-id="front-hero-label" class="min-w-0">
+            <EditableText :box="ticketTextBoxes.heroLabel" />
+          </CanvasDraggable>
+          <CanvasDraggable block-id="front-headline-name" class="min-w-0">
+            <EditableText :box="ticketTextBoxes.graduateName" />
+          </CanvasDraggable>
+          <div class="text-xs sm:text-sm font-mono-code font-medium mt-1 flex items-center gap-1.5 min-w-0">
+            <CanvasDraggable block-id="front-subtitle" class="min-w-0">
+              <EditableText :box="ticketTextBoxes.degreeMajor" />
+            </CanvasDraggable>
+            <span
+              v-if="
+                layerState['front-subtitle']?.visible !== false &&
+                layerState['front-honors']?.visible !== false
+              "
+              class="text-slate-400 shrink-0"
+            >•</span>
+            <CanvasDraggable block-id="front-honors" class="min-w-0">
+              <EditableText :box="ticketTextBoxes.honors" />
+            </CanvasDraggable>
+          </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-1 gap-2 my-auto py-2">
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">PASSENGER</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.graduateName || passengerName }}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">FLIGHT</span>
-            <span class="text-[11px] font-mono-code font-semibold text-white">{{ ticket.degreeMajor?.replace('FLIGHT ', '') || flightNumber }}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[9px] font-mono-code text-slate-300/70 uppercase">SEQ NO.</span>
-            <span class="text-[11px] font-mono-code font-semibold text-cyan-200">{{ ticket.ticketNumber || seqNumber }}</span>
-          </div>
-        </div>
+        <div v-if="showRouteZone" class="grid grid-cols-7 items-center gap-2 min-w-0">
+          <CanvasDraggable block-id="front-origin" class="col-span-2 min-w-0">
+            <EditableText :box="ticketTextBoxes.originLabel" />
+            <EditableText :box="ticketTextBoxes.originCode" />
+            <EditableText :box="ticketTextBoxes.originName" />
+          </CanvasDraggable>
 
-        <!-- Mini Laser Barcode on Front Stub -->
-        <div class="pt-2">
-          <div class="w-full h-8 rounded bg-white/90 px-2 py-1 flex items-center justify-between shadow-inner">
-            <svg class="w-full h-full" viewBox="0 0 180 28" preserveAspectRatio="none">
-              <g fill="#0f172a">
-                <rect x="0" y="0" width="3" height="28" />
-                <rect x="6" y="0" width="1.5" height="28" />
-                <rect x="10" y="0" width="4" height="28" />
-                <rect x="17" y="0" width="2" height="28" />
-                <rect x="22" y="0" width="1.5" height="28" />
-                <rect x="27" y="0" width="5" height="28" />
-                <rect x="35" y="0" width="2" height="28" />
-                <rect x="40" y="0" width="3" height="28" />
-                <rect x="46" y="0" width="1.5" height="28" />
-                <rect x="51" y="0" width="4" height="28" />
-                <rect x="58" y="0" width="2.5" height="28" />
-                <rect x="64" y="0" width="1.5" height="28" />
-                <rect x="69" y="0" width="5" height="28" />
-                <rect x="77" y="0" width="2" height="28" />
-                <rect x="82" y="0" width="3.5" height="28" />
-                <rect x="89" y="0" width="1.5" height="28" />
-                <rect x="94" y="0" width="4" height="28" />
-                <rect x="101" y="0" width="2" height="28" />
-                <rect x="106" y="0" width="3" height="28" />
-                <rect x="112" y="0" width="5" height="28" />
-                <rect x="120" y="0" width="1.5" height="28" />
-                <rect x="125" y="0" width="3" height="28" />
-                <rect x="131" y="0" width="2" height="28" />
-                <rect x="136" y="0" width="4.5" height="28" />
-                <rect x="144" y="0" width="1.5" height="28" />
-                <rect x="149" y="0" width="3" height="28" />
-                <rect x="155" y="0" width="2" height="28" />
-                <rect x="160" y="0" width="5" height="28" />
-                <rect x="168" y="0" width="1.5" height="28" />
-                <rect x="173" y="0" width="3" height="28" />
-                <rect x="178" y="0" width="2" height="28" />
-              </g>
-            </svg>
-          </div>
+          <CanvasDraggable block-id="front-route-line" class="col-span-3 flex flex-col items-center justify-center px-2 min-w-0">
+            <TicketRouteLine
+              :route-box="ticketTextBoxes.routeId"
+              :note-box="ticketTextBoxes.routeTransitNote"
+            />
+          </CanvasDraggable>
+
+          <CanvasDraggable block-id="front-dest" class="col-span-2 text-right min-w-0">
+            <EditableText :box="ticketTextBoxes.destLabel" />
+            <EditableText :box="ticketTextBoxes.destCode" />
+            <EditableText :box="ticketTextBoxes.destName" />
+          </CanvasDraggable>
         </div>
       </div>
-    </template>
+
+      <!-- 4-Column Event Metadata Grid (Each Field Independently Draggable & Removable) -->
+      <div
+        v-if="showInfoGrid"
+        class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/15"
+      >
+        <CanvasDraggable block-id="front-meta-venue" class="min-w-0">
+          <EditableText :box="ticketTextBoxes.meta1Label" />
+          <EditableText :box="ticketTextBoxes.venueName" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="front-meta-date" class="min-w-0">
+          <EditableText :box="ticketTextBoxes.meta2Label" />
+          <EditableText :box="ticketTextBoxes.eventDate" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="front-meta-time" class="min-w-0">
+          <EditableText :box="ticketTextBoxes.meta3Label" />
+          <EditableText :box="ticketTextBoxes.ceremonyTime" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="front-meta-doors" class="min-w-0">
+          <EditableText :box="ticketTextBoxes.meta4Label" />
+          <EditableText :box="ticketTextBoxes.doorsTime" />
+        </CanvasDraggable>
+      </div>
+
+      <!-- Footer: Security Notice -->
+      <CanvasDraggable block-id="front-notice" class="mt-2.5 pt-1.5 border-t border-white/10">
+        <div class="micro-text-strip truncate uppercase">
+          <EditableText :box="ticketTextBoxes.securityNotice" />
+        </div>
+      </CanvasDraggable>
+    </div>
+
+    <!-- Tear-Off Stub (~29% width) -->
+    <div
+      class="relative flex flex-col justify-between p-5 sm:p-6 sm:pl-7 bg-white/[0.03] min-w-0"
+      style="flex-basis: 29%;"
+    >
+      <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
+        <div class="min-w-0 flex-1">
+          <CanvasDraggable block-id="stub-header-label" class="min-w-0">
+            <EditableText :box="ticketTextBoxes.stubHeaderLabel" />
+          </CanvasDraggable>
+          <CanvasDraggable block-id="stub-pass-title" class="min-w-0">
+            <EditableText :box="ticketTextBoxes.ticketType" />
+          </CanvasDraggable>
+        </div>
+
+        <CanvasDraggable
+          block-id="stub-price-badge"
+          class="shrink-0"
+        >
+          <span
+            class="inline-block px-2 py-0.5 rounded text-[10px] font-mono-code font-semibold bg-white/15 border"
+            :style="{
+              color: ticket.degreeColor || '#a5f3fc',
+              borderColor: `${ticket.degreeColor || '#a5f3fc'}55`,
+            }"
+          >
+            <EditableText :box="ticketTextBoxes.admitCount" />
+          </span>
+        </CanvasDraggable>
+      </div>
+
+      <div class="grid grid-cols-2 sm:grid-cols-1 gap-2 my-auto py-2">
+        <CanvasDraggable block-id="stub-section" class="flex justify-between items-baseline gap-2 min-w-0">
+          <EditableText :box="ticketTextBoxes.sectionLabel" />
+          <EditableText :box="ticketTextBoxes.section" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="stub-row" class="flex justify-between items-baseline gap-2 min-w-0">
+          <EditableText :box="ticketTextBoxes.rowLabel" />
+          <EditableText :box="ticketTextBoxes.row" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="stub-seat" class="flex justify-between items-baseline gap-2 min-w-0">
+          <EditableText :box="ticketTextBoxes.seatLabel" />
+          <EditableText :box="ticketTextBoxes.seat" />
+        </CanvasDraggable>
+
+        <CanvasDraggable block-id="stub-ticket-no" class="flex justify-between items-baseline gap-2 min-w-0">
+          <EditableText :box="ticketTextBoxes.ticketNoLabel" />
+          <EditableText :box="ticketTextBoxes.ticketNumber" />
+        </CanvasDraggable>
+      </div>
+
+      <!-- Clean Stub Verification Footer -->
+      <CanvasDraggable block-id="stub-footer" class="pt-2 border-t border-white/15 flex items-baseline justify-between gap-2 text-[9px] font-mono-code text-slate-300/80">
+        <EditableText :box="ticketTextBoxes.stubFooterLeft" />
+        <EditableText :box="ticketTextBoxes.stubFooterRight" />
+      </CanvasDraggable>
+    </div>
+
+    <CustomCanvasLayers face="front" />
   </section>
 </template>

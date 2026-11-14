@@ -1,7 +1,7 @@
 <script setup>
 import { useTicketData } from '../composables/useTicketData.js'
 
-const { bgMode, baseColor, customBgImage, bgOpacity, overlayOpacity } = useTicketData()
+const { bgMode, baseColor, customBgImage, bgImageStyle, bgOpacity, overlayOpacity } = useTicketData()
 </script>
 
 <template>
@@ -13,7 +13,7 @@ const { bgMode, baseColor, customBgImage, bgOpacity, overlayOpacity } = useTicke
   <div
     v-if="bgMode === 'image' && customBgImage"
     class="custom-ticket-bg"
-    :style="{ backgroundImage: `url(${customBgImage})`, opacity: bgOpacity }"
+    :style="bgImageStyle"
   ></div>
 
   <!-- Base Color Table Selection Mode Background -->

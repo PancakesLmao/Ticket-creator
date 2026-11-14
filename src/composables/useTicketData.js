@@ -1,89 +1,52 @@
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
+import { ticketIconOptions } from '../constants/ticketIcons.js'
+import {
+  DEFAULT_BG_OPACITY,
+  DEFAULT_OVERLAY_OPACITY,
+  presetList,
+  baseColorPresets,
+  foilPresets,
+  presets,
+} from '../constants/ticketPresets.js'
+import {
+  normalizeHex,
+  getHexLuminance,
+  derivePaletteFromHex,
+  extractImagePalette,
+} from '../utils/ticketFormatters.js'
+import {
+  clearSelection,
+  registerTicketAccessor,
+  resetAllLayerState,
+} from './useCanvasDrag.js'
 
-export const presets = {
-  commencement: {
-    institutionName: '<UNIVERSITY A>',
-    classYear: 'CLASS OF <YEAR>',
-    ceremonyTitle: '<ANNUAL COMMENCEMENT CEREMONY>',
-    eventDate: '<EVENT DATE>',
-    ceremonyTime: '<START TIME>',
-    doorsTime: '<DOORS>',
-    venueName: '<CAMPUS AUDITORIUM>',
-    venueAddress: '<HALL / SECTION LEVEL>',
-    graduateName: '<USERNAME>',
-    degreeMajor: '<DEGREE / MAJOR>',
-    degreeColor: '#a5f3fc',
-    honors: '<HONORS DISTINCTION>',
-    honorsColor: '#fef08a',
-    ticketType: '<GUEST PASS>',
-    section: '<SEC>',
-    row: '<ROW>',
-    seat: '<SEAT>',
-    ticketNumber: '#<0042>',
-    admitCount: 'ADMIT <1>',
-    barcodeNumber: '<0094-2049-8841-AX>',
-    qrPayload: '<KEY // 9481-F09-LASER>',
-    holoStatus: '<HOLO-SEAL // VALID>',
-    securityNotice: '<NON-TRANSFERABLE • VALID ID REQUIRED AT ENTRY>',
-    policyText: '<OFFICIAL CEREMONY CREDENTIAL • BAG POLICY ENFORCED>',
-    logoTitle: '<YOUR LOGO HERE>',
-    logoSubtitle: '<320 × 120 PX • VECTOR EMBLEM ZONE>',
-  },
-  boarding_pass: {
-    institutionName: '<AIRLINE // SPACEWAYS>',
-    classYear: 'CLASS // <S-01>',
-    ceremonyTitle: 'NON-STOP • ORBITAL TRANSIT',
-    eventDate: '<OCT 24, 2049>',
-    ceremonyTime: '<21:45 UTC>',
-    doorsTime: 'GATE <G-08>',
-    venueName: '<NEO-TOKYO TERMINAL>',
-    venueAddress: '<ZURICH SKYPORT>',
-    graduateName: '<PASSENGER // USER>',
-    degreeMajor: 'FLIGHT <AX-2049>',
-    degreeColor: '#a5f3fc',
-    honors: '<PRIORITY BOARDING>',
-    honorsColor: '#fef08a',
-    ticketType: '<BOARDING PASS>',
-    section: '<ZONE 1>',
-    row: '<04>',
-    seat: '<04A // VIP>',
-    ticketNumber: '#<0042>',
-    admitCount: 'ADMIT <1>',
-    barcodeNumber: '<0094-2049-8841-AX>',
-    qrPayload: '<KEY // 9481-F09-LASER>',
-    holoStatus: '<HOLOGRAPHIC // LASER SECURED>',
-    securityNotice: '<AUTH-0994-X • BIOMETRIC VERIFICATION REQUIRED>',
-    policyText: '<STANDARD ORBITAL BAGGAGE LIMITS APPLY>',
-    logoTitle: '<YOUR LOGO HERE>',
-    logoSubtitle: '<320 × 120 PX • VECTOR EMBLEM ZONE>',
-  },
+const TICKET_ASPECT = 860 / 330
+
+function extractPresetFields(preset) {
+  const copy = { ...preset }
+  delete copy.hiddenLayers
+  return copy
 }
 
-export const DEFAULT_BG_OPACITY = 0.35
-export const DEFAULT_OVERLAY_OPACITY = 0.5
-
-export const baseColorPresets = [
-  { id: 'obsidian', name: 'Deep Obsidian', hex: '#0b0f19', desc: 'Stealth Void' },
-  { id: 'sapphire', name: 'Cosmic Sapphire', hex: '#0f172a', desc: 'Deep Navy Glass' },
-  { id: 'titanium', name: 'Frosted Titanium', hex: '#334155', desc: 'Industrial Slate' },
-  { id: 'emerald', name: 'Bioluminescent Emerald', hex: '#064e3b', desc: 'Cyber Green' },
-  { id: 'teal', name: 'Quantum Teal', hex: '#0d3d43', desc: 'Laser Cyan' },
-  { id: 'amethyst', name: 'Royal Amethyst', hex: '#2e1065', desc: 'Imperial Violet' },
-  { id: 'crimson', name: 'Velvet Crimson', hex: '#4c0519', desc: 'Academic Ruby' },
-  { id: 'amber', name: 'Golden Amber', hex: '#451a03', desc: 'Warm Topaz' },
-  { id: 'opal', name: 'Frosted Opal', hex: '#f1f5f9', desc: 'High-Key White Glass' },
-]
-
-export const foilPresets = [
-  { id: 'silver', name: 'Metallic Silver', hex: '#e2e8f0' },
-  { id: 'gold', name: 'Ceremony Gold', hex: '#facc15' },
-  { id: 'cyan', name: 'Laser Cyan', hex: '#38bdf8' },
-  { id: 'rose', name: 'Rose Gold', hex: '#f472b6' },
-  { id: 'obsidian', name: 'Stealth Black', hex: '#0f172a' },
-  { id: 'white', name: 'Frost White', hex: '#ffffff' },
-]
+function measureImageAspect(url) {
+  return new Promise((resolve) => {
+    if (!url || typeof Image === 'undefined') {
+      resolve(null)
+      return
+    }
+    const img = new Image()
+    img.onload = () => {
+      resolve(img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : null)
+    }
+    img.onerror = () => resolve(null)
+    img.src = url
+  })
+}
 
 const activePresetKey = ref('commencement')
+const interactionMode = ref('edit') // 'edit' | 'preview'
+const isEditingField = ref(false)
+const emblemMode = ref('icon') // 'icon' | 'logo'
 const bgMode = ref('image') // 'image' | 'color'
 const baseColor = ref('#0f172a')
 const foilMode = ref('rainbow') // 'rainbow' | 'color' | 'transparent'
@@ -92,153 +55,284 @@ const customBgImage = ref(null)
 const customLogoUrl = ref(null)
 const bgOpacity = ref(DEFAULT_BG_OPACITY)
 const overlayOpacity = ref(DEFAULT_OVERLAY_OPACITY)
+const bgPosX = ref(50)
+const bgPosY = ref(50)
+const bgZoom = ref(100)
+const bgImageAspect = ref(null)
 const isLightBg = ref(false)
+const smartPalette = ref(null)
+const isAutoAccentEnabled = ref(true)
 
-const ticket = reactive({ ...presets.commencement })
+watch(customBgImage, (url) => {
+  if (!url) {
+    bgImageAspect.value = null
+    return
+  }
+  measureImageAspect(url).then((aspect) => {
+    if (customBgImage.value === url) {
+      bgImageAspect.value = aspect
+    }
+  })
+})
+
+const ticket = reactive({
+  ...extractPresetFields(presets.commencement),
+  removedTextBoxes: {},
+  customBoxTexts: {},
+})
+let bgDetectionToken = 0
+
+registerTicketAccessor(() => ticket)
+resetAllLayerState(presets.commencement.hiddenLayers || [])
+
+function applySmartPalette(palette, { syncColors = true } = {}) {
+  if (!palette) return
+  smartPalette.value = palette
+  isLightBg.value = Boolean(palette.isLight)
+  if (syncColors) {
+    foilColor.value = palette.foilColor
+    ticket.degreeColor = palette.primaryTagColor
+    ticket.honorsColor = palette.secondaryTagColor
+  }
+}
+
+export async function autoMatchAccentToBackground() {
+  isAutoAccentEnabled.value = true
+  const token = ++bgDetectionToken
+  if (bgMode.value === 'image' && customBgImage.value) {
+    const targetUrl = customBgImage.value
+    const palette = await extractImagePalette(targetUrl)
+    if (token === bgDetectionToken && bgMode.value === 'image' && customBgImage.value === targetUrl) {
+      applySmartPalette(palette, { syncColors: true })
+    }
+    return
+  }
+  if (bgMode.value === 'color') {
+    const palette = derivePaletteFromHex(baseColor.value)
+    applySmartPalette(palette, { syncColors: true })
+    return
+  }
+  smartPalette.value = null
+  isLightBg.value = false
+  const preset = presets[activePresetKey.value] || presets.commencement
+  ticket.degreeColor = preset.degreeColor
+  ticket.honorsColor = preset.honorsColor
+}
 
 export function setPreset(key) {
   if (!presets[key]) return
   activePresetKey.value = key
-  Object.assign(ticket, presets[key])
-}
-
-export function detectLuminance(imageUrl) {
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = 'anonymous'
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas')
-        canvas.width = 40
-        canvas.height = 40
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, 40, 40)
-        const imageData = ctx.getImageData(0, 0, 40, 40)
-        const data = imageData.data
-        let totalLuminance = 0
-        const pixelCount = data.length / 4
-
-        for (let i = 0; i < data.length; i += 4) {
-          // Standard ITU-R BT.601 perceived luminance
-          const r = data[i]
-          const g = data[i + 1]
-          const b = data[i + 2]
-          totalLuminance += 0.299 * r + 0.587 * g + 0.114 * b
-        }
-
-        const avgLuminance = totalLuminance / pixelCount
-        // If average luminance > 135, it's a light background needing dark text
-        resolve(avgLuminance > 135)
-      } catch {
-        resolve(false)
-      }
-    }
-    img.onerror = () => resolve(false)
-    img.src = imageUrl
+  Object.assign(ticket, extractPresetFields(presets[key]), {
+    removedTextBoxes: {},
+    customBoxTexts: {},
   })
+  resetAllLayerState(presets[key].hiddenLayers || [])
+  if (isAutoAccentEnabled.value && ((bgMode.value === 'image' && customBgImage.value) || bgMode.value === 'color')) {
+    if (smartPalette.value) {
+      ticket.degreeColor = smartPalette.value.primaryTagColor
+      ticket.honorsColor = smartPalette.value.secondaryTagColor
+    }
+  }
 }
 
-export function getHexLuminance(hex) {
-  if (!hex) return 0
-  let cleanHex = hex.replace('#', '')
-  if (cleanHex.length === 3) {
-    cleanHex = cleanHex.split('').map((c) => c + c).join('')
+export function setInteractionMode(mode) {
+  if (mode !== 'edit' && mode !== 'preview') return
+  interactionMode.value = mode
+  if (mode === 'preview') {
+    isEditingField.value = false
+    clearSelection()
   }
-  if (cleanHex.length !== 6) return 0
-  const r = parseInt(cleanHex.substring(0, 2), 16)
-  const g = parseInt(cleanHex.substring(2, 4), 16)
-  const b = parseInt(cleanHex.substring(4, 6), 16)
-  return 0.299 * r + 0.587 * g + 0.114 * b
+}
+
+export function setEditingField(val) {
+  isEditingField.value = Boolean(val)
+}
+
+export function setEmblemMode(mode) {
+  if (mode === 'icon' || mode === 'logo') {
+    emblemMode.value = mode
+  }
+}
+
+export function cycleHeaderIcon() {
+  const idx = ticketIconOptions.findIndex((i) => i.id === ticket.headerIcon)
+  const next = ticketIconOptions[(idx + 1) % ticketIconOptions.length]
+  ticket.headerIcon = next.id
+}
+
+export function cycleRouteIcon() {
+  const idx = ticketIconOptions.findIndex((i) => i.id === ticket.routeIcon)
+  const next = ticketIconOptions[(idx + 1) % ticketIconOptions.length]
+  ticket.routeIcon = next.id
 }
 
 export function setBgMode(mode) {
   bgMode.value = mode
+  const token = ++bgDetectionToken
   if (mode === 'color') {
-    isLightBg.value = getHexLuminance(baseColor.value) > 135
+    const palette = derivePaletteFromHex(baseColor.value)
+    applySmartPalette(palette, { syncColors: isAutoAccentEnabled.value })
   } else if (mode === 'image' && customBgImage.value) {
-    detectLuminance(customBgImage.value).then((light) => {
-      isLightBg.value = light
+    const targetUrl = customBgImage.value
+    extractImagePalette(targetUrl).then((palette) => {
+      if (token === bgDetectionToken && bgMode.value === 'image' && customBgImage.value === targetUrl) {
+        applySmartPalette(palette, { syncColors: isAutoAccentEnabled.value })
+      }
     })
   } else {
+    smartPalette.value = null
     isLightBg.value = false
   }
 }
 
 export function setBaseColor(hex) {
-  if (!hex) return
-  baseColor.value = hex
+  const normalized = normalizeHex(hex)
+  if (!normalized) return
+  baseColor.value = normalized
   if (bgMode.value === 'color') {
-    isLightBg.value = getHexLuminance(hex) > 135
+    const palette = derivePaletteFromHex(normalized)
+    applySmartPalette(palette, { syncColors: isAutoAccentEnabled.value })
   }
 }
 
-export function parseDateToIso(str) {
-  if (!str || str.includes('<')) return ''
-  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str
-  const d = new Date(str)
-  if (isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+export function setBgPosition(x, y) {
+  if (Number.isFinite(x)) {
+    bgPosX.value = Math.max(0, Math.min(100, Math.round(x * 10) / 10))
+  }
+  if (Number.isFinite(y)) {
+    bgPosY.value = Math.max(0, Math.min(100, Math.round(y * 10) / 10))
+  }
 }
 
-export function formatIsoToEventDate(iso) {
-  if (!iso) return '<EVENT DATE>'
-  const parts = iso.split('-')
-  if (parts.length !== 3) return iso
-  const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]))
-  const monthName = d.toLocaleString('en-US', { month: 'long' }).toUpperCase()
-  return `${monthName} ${Number(parts[2])}, ${parts[0]}`
+export function setBgZoom(zoom) {
+  if (Number.isFinite(zoom)) {
+    bgZoom.value = Math.max(50, Math.min(250, Math.round(zoom)))
+  }
 }
 
-export function parseTimeTo24h(str) {
-  if (!str || str.includes('<')) return ''
-  const match = str.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
-  if (!match) return ''
-  let hours = parseInt(match[1], 10)
-  const minutes = match[2]
-  const meridiem = match[3] ? match[3].toUpperCase() : null
-  if (meridiem === 'PM' && hours < 12) hours += 12
-  if (meridiem === 'AM' && hours === 12) hours = 0
-  return `${String(hours).padStart(2, '0')}:${minutes}`
+export function resetBgPosition() {
+  bgPosX.value = 50
+  bgPosY.value = 50
+  bgZoom.value = 100
 }
 
-export function formatTimeToString(time24) {
-  if (!time24) return '<START TIME>'
-  const parts = time24.split(':')
-  if (parts.length < 2) return time24
-  let hours = parseInt(parts[0], 10)
-  const ampm = hours >= 12 ? 'PM' : 'AM'
-  hours = hours % 12 || 12
-  return `${String(hours).padStart(2, '0')}:${parts[1]} ${ampm}`
+export function panBgByDelta(startPosX, startPosY, dx, dy, width, height) {
+  const w = Math.max(width || 1, 1)
+  const h = Math.max(height || 1, 1)
+  const aspect = bgImageAspect.value || 1
+  const zoomRatio = bgZoom.value / 100
+  let imgW
+  let imgH
+
+  if (bgZoom.value === 100) {
+    if (aspect >= w / h) {
+      imgH = h
+      imgW = h * aspect
+    } else {
+      imgW = w
+      imgH = w / aspect
+    }
+  } else if (aspect >= TICKET_ASPECT) {
+    imgH = h * zoomRatio
+    imgW = imgH * aspect
+  } else {
+    imgW = w * zoomRatio
+    imgH = imgW / aspect
+  }
+
+  const travelX = w - imgW
+  const travelY = h - imgH
+  const divisorX = Math.abs(travelX) >= 12 ? travelX : -w
+  const divisorY = Math.abs(travelY) >= 12 ? travelY : -h
+
+  setBgPosition(
+    startPosX + (dx / divisorX) * 100,
+    startPosY + (dy / divisorY) * 100
+  )
 }
+
+const hasCustomBgTransform = computed(
+  () => bgPosX.value !== 50 || bgPosY.value !== 50 || bgZoom.value !== 100
+)
+
+const bgImageStyle = computed(() => {
+  if (!customBgImage.value) return {}
+  const zoom = bgZoom.value
+  let backgroundSize = 'cover'
+  if (zoom !== 100) {
+    const aspect = bgImageAspect.value || 1
+    backgroundSize = aspect >= TICKET_ASPECT ? `auto ${zoom}%` : `${zoom}% auto`
+  }
+  return {
+    backgroundImage: `url(${customBgImage.value})`,
+    backgroundPosition: `${bgPosX.value}% ${bgPosY.value}%`,
+    backgroundSize,
+    opacity: bgOpacity.value,
+  }
+})
 
 export async function setCustomBg(url) {
   customBgImage.value = url
+  bgMode.value = 'image'
+  resetBgPosition()
+  const token = ++bgDetectionToken
   if (url) {
-    const light = await detectLuminance(url)
-    isLightBg.value = light
+    const [palette, aspect] = await Promise.all([
+      extractImagePalette(url),
+      measureImageAspect(url),
+    ])
+    if (token === bgDetectionToken && bgMode.value === 'image' && customBgImage.value === url) {
+      bgImageAspect.value = aspect
+      isAutoAccentEnabled.value = true
+      applySmartPalette(palette, { syncColors: true })
+    }
   } else {
+    bgImageAspect.value = null
+    smartPalette.value = null
     isLightBg.value = false
   }
 }
 
 export function setCustomLogo(url) {
   customLogoUrl.value = url
+  if (url) {
+    emblemMode.value = 'logo'
+  }
 }
 
 export function clearCustomLogo() {
   customLogoUrl.value = null
+  emblemMode.value = 'icon'
 }
 
 export function clearCustomBg() {
+  bgDetectionToken++
   customBgImage.value = null
+  bgImageAspect.value = null
+  resetBgPosition()
+  smartPalette.value = null
   isLightBg.value = false
+  const preset = presets[activePresetKey.value] || presets.commencement
+  ticket.degreeColor = preset.degreeColor
+  ticket.honorsColor = preset.honorsColor
 }
 
 export function toggleThemeMode() {
-  isLightBg.value = !isLightBg.value
+  const nextLight = !isLightBg.value
+  isLightBg.value = nextLight
+  if (bgMode.value === 'image' && customBgImage.value && smartPalette.value) {
+    const baseHex = smartPalette.value.foilColor
+    const palette = derivePaletteFromHex(baseHex)
+    palette.isLight = nextLight
+    if (isAutoAccentEnabled.value) {
+      ticket.degreeColor = nextLight
+        ? derivePaletteFromHex(ticket.degreeColor || '#0284c7').primaryTagColor
+        : smartPalette.value.primaryTagColor
+      ticket.honorsColor = nextLight
+        ? derivePaletteFromHex(ticket.honorsColor || '#ca8a04').secondaryTagColor
+        : smartPalette.value.secondaryTagColor
+    }
+  }
 }
 
 export function setFoilMode(mode) {
@@ -265,7 +359,6 @@ const foilStyles = computed(() => {
         border: '1px solid rgba(255, 255, 255, 0.25)',
       },
       textColor: isLightBg.value ? 'text-slate-900' : 'text-slate-200',
-      dotColor: isLightBg.value ? 'bg-slate-900' : 'bg-cyan-400',
     }
   }
 
@@ -281,16 +374,25 @@ const foilStyles = computed(() => {
         border: '1px solid rgba(255, 255, 255, 0.3)',
       },
       textColor: isFoilLight ? 'text-slate-950 font-bold' : 'text-white font-bold',
-      dotColor: isFoilLight ? 'bg-slate-950' : 'bg-white',
     }
   }
 
-  // Default: rainbow mode
+  if (smartPalette.value?.foilGradient && smartPalette.value?.badgeGradient) {
+    return {
+      stripStyle: {
+        backgroundImage: smartPalette.value.foilGradient,
+      },
+      badgeStyle: {
+        backgroundImage: smartPalette.value.badgeGradient,
+      },
+      textColor: 'text-slate-950 font-bold',
+    }
+  }
+
   return {
     stripStyle: {},
     badgeStyle: {},
     textColor: 'text-slate-950',
-    dotColor: 'bg-slate-950',
   }
 })
 
@@ -302,7 +404,17 @@ export function resetOpacities() {
 export function useTicketData() {
   return {
     presets,
+    presetList,
+    ticketIconOptions,
     activePresetKey,
+    interactionMode,
+    isEditingField,
+    emblemMode,
+    setInteractionMode,
+    setEditingField,
+    setEmblemMode,
+    cycleHeaderIcon,
+    cycleRouteIcon,
     ticket,
     bgMode,
     baseColor,
@@ -311,12 +423,20 @@ export function useTicketData() {
     foilColor,
     foilPresets,
     foilStyles,
+    smartPalette,
+    isAutoAccentEnabled,
+    autoMatchAccentToBackground,
     setFoilMode,
     setFoilColor,
     customBgImage,
     customLogoUrl,
     bgOpacity,
     overlayOpacity,
+    bgPosX,
+    bgPosY,
+    bgZoom,
+    bgImageStyle,
+    hasCustomBgTransform,
     DEFAULT_BG_OPACITY,
     DEFAULT_OVERLAY_OPACITY,
     isLightBg,
@@ -326,13 +446,13 @@ export function useTicketData() {
     getHexLuminance,
     setCustomBg,
     clearCustomBg,
+    setBgPosition,
+    setBgZoom,
+    resetBgPosition,
+    panBgByDelta,
     setCustomLogo,
     clearCustomLogo,
     toggleThemeMode,
     resetOpacities,
-    parseDateToIso,
-    formatIsoToEventDate,
-    parseTimeTo24h,
-    formatTimeToString,
   }
 }
