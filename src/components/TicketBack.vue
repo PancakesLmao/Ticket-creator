@@ -1,19 +1,17 @@
 <script setup>
 import TicketGlassLayers from './TicketGlassLayers.vue'
+import { useTicketData } from '../composables/useTicketData.js'
 
 defineProps({
-  qrKey: { type: String, default: 'KEY // 9481-F09-LASER' },
   qrStandard: { type: String, default: 'ISO/IEC 18004' },
-  sealText: { type: String, default: 'HOLO-SEAL // VALID' },
-  logoTitle: { type: String, default: 'YOUR LOGO HERE' },
-  logoSubtitle: { type: String, default: '320 × 120 PX • VECTOR EMBLEM ZONE' },
   foilSpec: { type: String, default: 'AG-999' },
-  barcodeSerial: { type: String, default: '0094-2049-8841-AX' },
 })
+
+const { ticket, isLightBg, customLogoUrl, foilMode, foilStyles } = useTicketData()
 </script>
 
 <template>
-  <section class="ticket-face ticket-back flex flex-col sm:flex-row">
+  <section class="ticket-face ticket-back flex flex-col-reverse sm:flex-row" :class="{ 'ticket-light-mode': isLightBg }">
     <TicketGlassLayers />
     <div class="perforation-line-back"></div>
 
@@ -22,11 +20,6 @@ defineProps({
       class="relative z-10 flex flex-col items-center justify-between p-5 sm:p-6 sm:pr-7 bg-white/[0.03]"
       style="flex-basis: 29%;"
     >
-      <div class="w-full flex items-center justify-between border-b border-white/15 pb-2">
-        <span class="text-[9px] font-mono-code tracking-[0.22em] text-slate-300/80 uppercase">OPTICAL SCAN</span>
-        <span class="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span>
-      </div>
-
       <!-- High-Contrast Laser QR Code -->
       <div class="my-auto py-2 flex flex-col items-center">
         <div class="p-2.5 rounded-xl bg-white shadow-[0_8px_25px_rgba(0,0,0,0.45)] border border-white/80 relative">
@@ -63,8 +56,8 @@ defineProps({
             <rect x="86" y="68" width="6" height="24" />
           </svg>
         </div>
-        <div class="text-[9px] font-mono-code tracking-[0.22em] text-slate-200 mt-2">
-          {{ qrKey }}
+        <div class="text-[9px] font-mono-code tracking-[0.22em] text-slate-200 mt-2 truncate max-w-full text-center px-1">
+          {{ ticket.qrPayload }}
         </div>
       </div>
 
@@ -77,19 +70,16 @@ defineProps({
     <!-- Back Right Main Section (~71% width) -->
     <div class="relative z-10 flex-1 flex flex-col justify-between p-5 sm:p-6 sm:pl-8" style="flex-basis: 71%;">
       <!-- Back Header + Iridescent Strip -->
-      <div class="flex items-center justify-between gap-4 border-b border-white/15 pb-3">
-        <div>
-          <div class="text-[10px] font-mono-code tracking-[0.24em] text-slate-300/75 uppercase">
-            BRANDING & SECURITY VERIFICATION
-          </div>
-          <div class="text-sm font-display font-bold tracking-wider text-white">CUSTOM TEMPLATE // REVERSE FACE</div>
-        </div>
-
+      <div class="flex items-center justify-end border-b border-white/15 pb-3">
         <!-- Holographic Security Seal Pill -->
-        <div class="holo-foil-strip px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/40">
-          <span class="w-2 h-2 rounded-full bg-slate-950"></span>
-          <span class="font-mono-code text-[9px] font-bold tracking-[0.2em] text-slate-950">
-            {{ sealText }}
+        <div
+          class="px-3 py-1 rounded-full flex items-center gap-1.5 border border-white/40 transition-all duration-300"
+          :class="foilMode === 'rainbow' ? 'holo-foil-strip' : ''"
+          :style="foilStyles.stripStyle"
+        >
+          <span class="w-2 h-2 rounded-full" :class="foilStyles.dotColor"></span>
+          <span class="font-mono-code text-[9px] font-bold tracking-[0.2em]" :class="foilStyles.textColor">
+            {{ ticket.holoStatus }}
           </span>
         </div>
       </div>
@@ -100,9 +90,20 @@ defineProps({
         <div
           class="logo-template-zone flex-1 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-center gap-4 text-center sm:text-left"
         >
-          <!-- Metallic Placeholder Emblem SVG -->
+          <!-- Metallic Placeholder Emblem or Custom Logo -->
           <div
-            class="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center shrink-0 shadow-inner"
+            v-if="customLogoUrl"
+            class="h-16 sm:h-20 flex items-center justify-center shrink-0"
+          >
+            <img
+              :src="customLogoUrl"
+              alt="Logo"
+              class="h-full w-auto max-w-[180px] sm:max-w-[220px] object-contain"
+            />
+          </div>
+          <div
+            v-else
+            class="w-14 h-14 rounded-xl bg-white/10 border border-white/30 flex items-center justify-center shrink-0 shadow-inner overflow-hidden"
           >
             <svg class="w-8 h-8 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <polygon points="12 2 2 7 12 12 22 7 12 2" stroke-linecap="round" stroke-linejoin="round" />
@@ -111,16 +112,11 @@ defineProps({
             </svg>
           </div>
           <div>
-            <div
-              class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white/10 border border-white/20 text-[9px] font-mono-code tracking-[0.2em] text-cyan-200 uppercase mb-1"
-            >
-              TEMPLATE SLOT // SVG OR PNG
-            </div>
             <div class="text-base sm:text-lg font-display font-bold tracking-wider silver-text-emboss">
-              {{ logoTitle }}
+              {{ ticket.logoTitle }}
             </div>
             <div class="text-[11px] text-slate-300/75 font-mono-code mt-0.5">
-              {{ logoSubtitle }}
+              {{ ticket.logoSubtitle }}
             </div>
           </div>
         </div>
@@ -135,8 +131,8 @@ defineProps({
             METALLIC SILVER GLASS<br />
             REFRACTIVE INDEX: 1.52
           </div>
-          <div class="text-[8px] font-mono-code tracking-[0.2em] text-slate-400 uppercase border-t border-white/10 pt-1.5">
-            TEMPLATE // NON-TRANSFERABLE
+          <div class="text-[8px] font-mono-code tracking-[0.2em] text-slate-400 uppercase border-t border-white/10 pt-1.5 truncate">
+            {{ ticket.securityNotice }}
           </div>
         </div>
       </div>
@@ -199,14 +195,10 @@ defineProps({
 
         <div class="text-right shrink-0">
           <div class="text-[10px] font-mono-code font-bold tracking-[0.2em] text-white">
-            {{ barcodeSerial }}
-          </div>
-          <div class="text-[9px] font-mono-code tracking-[0.18em] text-slate-300/75">
-            CLICK TO FLIP // FRONT
+            {{ ticket.barcodeNumber }}
           </div>
         </div>
       </div>
     </div>
   </section>
 </template>
-

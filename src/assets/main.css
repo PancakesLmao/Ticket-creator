@@ -235,6 +235,63 @@ body {
   background-size: 12px 12px;
 }
 
+/* Custom User Uploaded Background Layer */
+.custom-ticket-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 0.3s ease;
+}
+
+/* Custom Base Color Selection Background Layer */
+.custom-ticket-color-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+  mix-blend-mode: normal;
+  transition: background-color 0.3s ease, opacity 0.3s ease;
+}
+
+/* Date and Time Picker styling */
+input[type="date"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.85);
+  transition: filter 0.2s ease;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  filter: invert(1);
+}
+
+/* Frosted Glass Scrim Overlay on Top of Background */
+.glass-scrim-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 6;
+  background:
+    linear-gradient(
+      132deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(15, 23, 42, 0.35) 50%,
+      rgba(255, 255, 255, 0.08) 100%
+    );
+  transition: opacity 0.2s ease;
+}
+
 /* Dynamic Glass Specular Reflection Overlay */
 .glass-glare {
   position: absolute;
@@ -368,6 +425,40 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+/* Smart Adaptive Light Mode for Uploaded Bright Backgrounds */
+.ticket-face.ticket-light-mode {
+  color: #0f172a;
+}
+.ticket-face.ticket-light-mode .text-white {
+  color: #0f172a !important;
+}
+.ticket-face.ticket-light-mode .text-slate-200,
+.ticket-face.ticket-light-mode .text-slate-300,
+.ticket-face.ticket-light-mode [class*="text-slate-300"] {
+  color: #334155 !important;
+}
+.ticket-face.ticket-light-mode .text-cyan-200 {
+  color: #0284c7 !important;
+}
+.ticket-face.ticket-light-mode .border-white\/15,
+.ticket-face.ticket-light-mode .border-white\/10,
+.ticket-face.ticket-light-mode .border-white\/20,
+.ticket-face.ticket-light-mode .border-white\/25,
+.ticket-face.ticket-light-mode .border-white\/30 {
+  border-color: rgba(15, 23, 42, 0.18) !important;
+}
+.ticket-face.ticket-light-mode .bg-white\/10,
+.ticket-face.ticket-light-mode .bg-white\/15,
+.ticket-face.ticket-light-mode .bg-white\/5 {
+  background-color: rgba(15, 23, 42, 0.08) !important;
+}
+.ticket-face.ticket-light-mode .silver-text-emboss {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.5));
 }
 
 /* Perforated Tear Divider Line */
