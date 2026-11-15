@@ -6,7 +6,6 @@ import { CUSTOM_TEXT_STYLE_PRESETS } from '../models/ticketTextBoxes.js'
 import { getImageBoxById, ticketImages } from '../models/ticketImages.js'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
-import TicketDataMatrixSvg from './TicketDataMatrixSvg.vue'
 import EditableImage from './EditableImage.vue'
 
 const props = defineProps({

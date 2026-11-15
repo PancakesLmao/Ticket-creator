@@ -1,11 +1,26 @@
 <script setup>
-import { PenLine, Box, RotateCcw, Layers, Group, Eye, Undo2, Redo2 } from '@lucide/vue'
+import { ref, onMounted, onUnmounted } from 'vue'
+import {
+  PenLine,
+  Box,
+  RotateCcw,
+  Layers,
+  Group,
+  Eye,
+  Undo2,
+  Redo2,
+  Download,
+  Loader2,
+  ChevronDown,
+} from '@lucide/vue'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
 import { useTicketHistory } from '../composables/useTicketHistory.js'
+import { useTicketExport } from '../composables/useTicketExport.js'
 
 const { interactionMode, setInteractionMode } = useTicketData()
 const {
+  isFlipped,
   selectedIds,
   isLayerPanelOpen,
   canGroupSelected,
@@ -17,6 +32,29 @@ const {
   toggleLayerPanel,
 } = useCanvasDrag()
 const { canUndo, canRedo, undo, redo } = useTicketHistory()
+const { isExporting, exportTicketPng } = useTicketExport()
+
+const isExportMenuOpen = ref(false)
+const exportMenuRef = ref(null)
+
+function onExportClick(target = 'active') {
+  isExportMenuOpen.value = false
+  exportTicketPng(target)
+}
+
+function onWindowClick(e) {
+  if (exportMenuRef.value && !exportMenuRef.value.contains(e.target)) {
+    isExportMenuOpen.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('click', onWindowClick)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', onWindowClick)
+})
 </script>
 
 <template>
@@ -157,5 +195,91 @@ const { canUndo, canRedo, undo, redo } = useTicketHistory()
       <RotateCcw class="w-3.5 h-3.5" />
       <span>Reset Layout</span>
     </button>
+
+    <!-- Export Transparent PNG Pill with Dropdown -->
+    <div ref="exportMenuRef" class="relative inline-flex items-center">
+      <div
+        class="inline-flex items-center p-0.5 rounded-full bg-slate-900/80 border border-cyan-400/35 hover:border-cyan-400/60 backdrop-blur-xl shadow-lg transition-all"
+      >
+        <button
+          type="button"
+          :disabled="isExporting"
+          class="inline-flex items-center gap-1.5 px-3 py-1 rounded-l-full font-semibold text-cyan-200 hover:text-white hover:bg-cyan-500/20 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          :title="`Export ${isFlipped ? 'Back' : 'Front'} Face as Transparent PNG`"
+          @click="onExportClick('active')"
+        >
+          <Loader2 v-if="isExporting" class="w-3.5 h-3.5 animate-spin text-cyan-400" />
+          <Download v-else class="w-3.5 h-3.5 text-cyan-300" />
+          <span>{{ isExporting ? 'Exporting...' : 'Export PNG' }}</span>
+        </button>
+
+        <button
+          type="button"
+          :disabled="isExporting"
+          class="px-1.5 py-1 rounded-r-full text-cyan-300 hover:text-white hover:bg-cyan-500/20 border-l border-white/10 transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+          title="Export Options"
+          aria-label="Export options"
+          @click.stop="isExportMenuOpen = !isExportMenuOpen"
+        >
+          <ChevronDown
+            class="w-3 h-3 transition-transform duration-200"
+            :class="{ 'rotate-180': isExportMenuOpen }"
+          />
+        </button>
+      </div>
+
+      <!-- Export Dropdown Menu -->
+      <div
+        v-if="isExportMenuOpen"
+        class="absolute top-full mt-2 right-0 w-52 py-1.5 rounded-xl bg-slate-900/95 border border-white/15 backdrop-blur-2xl shadow-2xl z-50 text-[10px] font-mono-code normal-case"
+        role="menu"
+      >
+        <div class="px-3 py-1 text-[9px] uppercase tracking-wider text-slate-400 font-semibold border-b border-white/10 mb-1">
+          Transparent PNG Export
+        </div>
+
+        <button
+          type="button"
+          class="w-full px-3 py-1.5 flex items-center justify-between text-left text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+          role="menuitem"
+          @click="onExportClick('active')"
+        >
+          <span>Visible Face ({{ isFlipped ? 'Back' : 'Front' }})</span>
+          <span class="text-[9px] text-cyan-400 font-mono-code">.png</span>
+        </button>
+
+        <button
+          type="button"
+          class="w-full px-3 py-1.5 flex items-center justify-between text-left text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+          role="menuitem"
+          @click="onExportClick('front')"
+        >
+          <span>Front Face</span>
+          <span class="text-[9px] text-cyan-400 font-mono-code">.png</span>
+        </button>
+
+        <button
+          type="button"
+          class="w-full px-3 py-1.5 flex items-center justify-between text-left text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+          role="menuitem"
+          @click="onExportClick('back')"
+        >
+          <span>Back Face</span>
+          <span class="text-[9px] text-cyan-400 font-mono-code">.png</span>
+        </button>
+
+        <div class="my-1 border-t border-white/10"></div>
+
+        <button
+          type="button"
+          class="w-full px-3 py-1.5 flex items-center justify-between text-left text-slate-200 hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+          role="menuitem"
+          @click="onExportClick('both')"
+        >
+          <span>Both Faces (2 PNGs)</span>
+          <span class="text-[9px] text-cyan-400 font-mono-code">2x</span>
+        </button>
+      </div>
+    </div>
   </header>
 </template>

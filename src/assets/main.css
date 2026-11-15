@@ -249,6 +249,28 @@ body {
     color: #0f172a;
     -webkit-text-fill-color: currentColor;
   }
+
+  /* Clean capture mode during PNG export */
+  .is-exporting-ticket .canvas-draggable,
+  .is-exporting-ticket .canvas-draggable.is-selected,
+  .is-exporting-ticket .canvas-draggable.is-layer-hovered,
+  .is-exporting-ticket .canvas-draggable.is-dragging {
+    outline: none !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .is-exporting-ticket .canvas-editable,
+  .is-exporting-ticket .canvas-editable:hover {
+    outline: none !important;
+    background-color: transparent !important;
+  }
+
+  .is-exporting-ticket .resize-handle,
+  .is-exporting-ticket .canvas-selection-bar,
+  .is-exporting-ticket .canvas-context-menu {
+    display: none !important;
+  }
 }
 
 .ticket-3d-rig {
