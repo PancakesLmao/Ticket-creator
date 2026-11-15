@@ -15,7 +15,7 @@ defineProps({
 <template>
   <svg
     v-if="type === 'qr'"
-    :class="svgClass || 'w-28 h-28 sm:w-32 sm:h-32 text-slate-950'"
+    :class="svgClass || 'w-32 h-32 text-slate-950'"
     viewBox="0 0 100 100"
     fill="currentColor"
   >

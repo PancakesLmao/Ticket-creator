@@ -25,6 +25,16 @@ const viewportWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 14
 
 function onResize() {
   viewportWidth.value = window.innerWidth
+  if (window.innerWidth < 1024 && isSidebarOpen.value && isLayerPanelOpen.value) {
+    isSidebarOpen.value = false
+  }
+}
+
+function closeDrawersOnMobile() {
+  if (viewportWidth.value < 1024) {
+    isLayerPanelOpen.value = false
+    isSidebarOpen.value = false
+  }
 }
 
 onMounted(() => {
@@ -36,7 +46,7 @@ onUnmounted(() => {
 })
 
 const drawerPx = computed(() => (viewportWidth.value >= 1280 ? 384 : 320))
-const basePadX = computed(() => (viewportWidth.value >= 640 ? 32 : 16))
+const basePadX = computed(() => (viewportWidth.value >= 640 ? 32 : 12))
 const leftPushPx = computed(() =>
   isLayerPanelOpen.value && viewportWidth.value >= 1024 ? drawerPx.value : 0,
 )
@@ -44,10 +54,10 @@ const rightPushPx = computed(() =>
   isSidebarOpen.value && viewportWidth.value >= 1024 ? drawerPx.value : 0,
 )
 const stageScale = computed(() => {
-  const innerAvailable =
+  const availableWidth =
     viewportWidth.value - (leftPushPx.value + basePadX.value) - (rightPushPx.value + basePadX.value)
-  if (innerAvailable >= 860) return 1
-  return Math.max(0.28, innerAvailable / 860)
+  if (availableWidth >= 860) return 1
+  return Math.max(0.25, Math.min(1, availableWidth / 860))
 })
 </script>
 
@@ -91,10 +101,22 @@ const stageScale = computed(() => {
       @pointerdown.self="clearSelection"
     >
       <div
-        class="transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-        :style="stageScale < 1 ? { transform: `scale(${stageScale})`, transformOrigin: 'center center' } : undefined"
+        class="relative flex items-center justify-center shrink-0 select-none transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+        :style="{
+          width: `${Math.round(860 * stageScale)}px`,
+          height: `${Math.round(330 * stageScale)}px`,
+        }"
       >
-        <TicketScene v-model:is-flipped="isFlipped" />
+        <div
+          class="origin-top-left absolute left-0 top-0 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+          :style="{
+            transform: `scale(${stageScale})`,
+            width: '860px',
+            height: '330px',
+          }"
+        >
+          <TicketScene v-model:is-flipped="isFlipped" />
+        </div>
       </div>
     </div>
 
@@ -108,6 +130,13 @@ const stageScale = computed(() => {
     >
       <TicketControls @flip="toggleFlip" />
     </div>
+
+    <!-- Mobile Backdrop Dimmer when any drawer is open on mobile screens -->
+    <div
+      v-if="(isLayerPanelOpen || isSidebarOpen) && viewportWidth < 1024"
+      class="fixed inset-0 bg-black/60 backdrop-blur-xs z-[35] transition-opacity duration-300 pointer-events-auto"
+      @click="closeDrawersOnMobile"
+    ></div>
 
     <!-- Left-Side Layer Visualizer & Spatial Map -->
     <LayerVisualizerSidebar />

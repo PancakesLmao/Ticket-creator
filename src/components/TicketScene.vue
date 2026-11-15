@@ -122,11 +122,7 @@ function onScenePointerDown(e) {
       let targetArea = 'main'
       if (customStubBgImage.value) {
         const relX = (e.clientX - rect.left) / rect.width
-        const relY = (e.clientY - rect.top) / rect.height
-        const isMobile = window.innerWidth < 640
-        const isStub = isMobile
-          ? relY >= 0.68
-          : (!isFlipped.value ? relX >= 0.71 : relX <= 0.29)
+        const isStub = !isFlipped.value ? relX >= 0.71 : relX <= 0.29
         if (isStub || !customBgImage.value) {
           targetArea = 'stub'
         }

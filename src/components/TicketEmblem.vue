@@ -57,7 +57,7 @@ watch(
 </script>
 
 <template>
-  <div v-if="isLogoActive" :class="variant === 'back' ? 'h-14 sm:h-16 flex items-center justify-center shrink-0' : 'h-9 flex items-center shrink-0'">
+  <div v-if="isLogoActive" :class="variant === 'back' ? 'h-16 flex items-center justify-center shrink-0' : 'h-9 flex items-center shrink-0'">
     <img
       :src="customLogoUrl"
       alt="Custom ticket logo"

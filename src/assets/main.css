@@ -14,6 +14,28 @@
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+}
+
+/* Universal slim custom scrollbar for all scrollable containers */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(34, 211, 238, 0.55);
 }
 
 input,
@@ -81,7 +103,7 @@ body {
 .ticket-scene {
   position: relative;
   z-index: 10;
-  width: min(92vw, 860px);
+  width: 860px;
   height: 330px;
   perspective: 1800px;
   transform-style: preserve-3d;
@@ -229,20 +251,6 @@ body {
   }
 }
 
-@media (max-width: 720px) {
-  .ticket-scene {
-    height: 270px;
-    transform: scale(0.95);
-  }
-}
-
-@media (max-width: 639px) {
-  .ticket-scene {
-    width: 96vw;
-    height: 490px;
-  }
-}
-
 .ticket-3d-rig {
   width: 100%;
   height: 100%;
@@ -310,17 +318,6 @@ body {
   mask-composite: intersect;
 }
 
-@media (max-width: 639px) {
-  .ticket-face {
-    -webkit-mask-image:
-      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
-      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
-    mask-image:
-      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
-      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
-  }
-}
-
 .ticket-front {
   transform: translateZ(1px);
 }
@@ -334,17 +331,6 @@ body {
   mask-image:
     radial-gradient(circle 16px at 29% 0%, transparent 15.5px, black 16.5px),
     radial-gradient(circle 16px at 29% 100%, transparent 15.5px, black 16.5px);
-}
-
-@media (max-width: 639px) {
-  .ticket-back {
-    -webkit-mask-image:
-      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
-      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
-    mask-image:
-      radial-gradient(circle 15px at 0% 68%, transparent 14.5px, black 15.5px),
-      radial-gradient(circle 15px at 100% 68%, transparent 14.5px, black 15.5px);
-  }
 }
 
 /* Brushed Anodized Silver Micro-Grain Texture */
@@ -426,28 +412,6 @@ body {
   width: 29%;
   top: 0;
   bottom: 0;
-}
-
-@media (max-width: 639px) {
-  .ticket-front .custom-ticket-bg--main.custom-ticket-bg--split,
-  .ticket-back .custom-ticket-bg--main.custom-ticket-bg--split {
-    top: 0;
-    bottom: auto;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: 68%;
-  }
-
-  .ticket-front .custom-ticket-bg--stub,
-  .ticket-back .custom-ticket-bg--stub {
-    top: 68%;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: 32%;
-  }
 }
 
 /* Custom Base Color Selection Background Layer */
@@ -689,21 +653,6 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
   background-size: 2px 10px;
   z-index: 8;
   pointer-events: none;
-}
-
-@media (max-width: 639px) {
-  .perforation-line-front,
-  .perforation-line-back {
-    top: 68%;
-    bottom: auto;
-    left: 18px;
-    right: 18px;
-    width: auto;
-    height: 2px;
-    transform: translateY(-50%);
-    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.35) 50%, rgba(0, 0, 0, 0.35) 50%);
-    background-size: 10px 2px;
-  }
 }
 
 /* Micro-text laser border */

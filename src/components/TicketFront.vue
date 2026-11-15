@@ -43,7 +43,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
 
 <template>
   <section
-    class="ticket-face ticket-front flex flex-col sm:flex-row"
+    class="ticket-face ticket-front flex flex-row"
     :class="{ 'ticket-light-mode': isLightBg, 'pointer-events-none': isFlipped }"
     :inert="isFlipped"
   >
@@ -53,7 +53,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
     <!-- Left Holographic Foil Strip (Auto-collapses when all foil layers removed) -->
     <div
       v-if="showFoilStrip"
-      class="w-full h-5 sm:w-7 sm:h-full shrink-0 flex sm:flex-col items-center justify-between py-1 px-3 sm:py-4 sm:px-0 z-[9] border-b sm:border-b-0 sm:border-r border-white/30 transition-all duration-300"
+      class="w-7 h-full shrink-0 flex flex-col items-center justify-between py-4 px-0 z-[9] border-r border-white/30 transition-all duration-300"
       :class="foilMode === 'rainbow' ? 'holo-foil-strip' : ''"
       :style="foilStyles.stripStyle"
     >
@@ -72,7 +72,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
     </div>
 
     <!-- Main Body (~68% width) -->
-    <div class="relative flex-1 flex flex-col justify-between p-5 sm:p-6 sm:pr-7 min-w-0">
+    <div class="relative flex-1 flex flex-col justify-between p-6 pr-7 min-w-0">
       <!-- Header Row -->
       <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
         <div class="flex items-center gap-2.5 min-w-0 flex-1 h-full">
@@ -118,7 +118,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
           <CanvasDraggable block-id="front-headline-name" class="min-w-0">
             <EditableText :box="ticketTextBoxes.graduateName" />
           </CanvasDraggable>
-          <div class="text-xs sm:text-sm font-mono-code font-medium mt-1 flex items-center gap-1.5 min-w-0">
+          <div class="text-sm font-mono-code font-medium mt-1 flex items-center gap-1.5 min-w-0">
             <CanvasDraggable block-id="front-subtitle" class="min-w-0">
               <EditableText :box="ticketTextBoxes.degreeMajor" />
             </CanvasDraggable>
@@ -160,7 +160,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
       <!-- 4-Column Event Metadata Grid (Each Field Independently Draggable & Removable) -->
       <div
         v-if="showInfoGrid"
-        class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-white/15"
+        class="grid grid-cols-4 gap-3 pt-3 border-t border-white/15"
       >
         <CanvasDraggable block-id="front-meta-venue" class="min-w-0">
           <EditableText :box="ticketTextBoxes.meta1Label" />
@@ -193,7 +193,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
 
     <!-- Tear-Off Stub (~29% width) -->
     <div
-      class="relative flex flex-col justify-between p-5 sm:p-6 sm:pl-7 bg-white/[0.03] min-w-0"
+      class="relative flex flex-col justify-between p-6 pl-7 bg-white/[0.03] min-w-0"
       style="flex-basis: 29%;"
     >
       <div class="h-12 flex items-center justify-between gap-2 border-b border-white/15 pb-3">
@@ -222,7 +222,7 @@ const showInfoGrid = computed(() => isAnyLayerVisible(INFO_GRID_LAYER_IDS))
         </CanvasDraggable>
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-1 gap-2 my-auto py-2">
+      <div class="grid grid-cols-1 gap-2 my-auto py-2">
         <CanvasDraggable block-id="stub-section" class="flex justify-between items-baseline gap-2 min-w-0">
           <EditableText :box="ticketTextBoxes.sectionLabel" />
           <EditableText :box="ticketTextBoxes.section" />

@@ -238,7 +238,7 @@ function onCardDragEnd() {
 
 <template>
   <aside
-    class="fixed left-0 top-0 h-screen w-80 xl:w-96 bg-slate-900/95 border-r border-white/10 backdrop-blur-2xl z-40 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] flex flex-col shadow-[12px_0_40px_rgba(0,0,0,0.65)]"
+    class="fixed left-0 top-0 h-screen w-[calc(100vw-3rem)] sm:w-80 xl:w-96 bg-slate-900/95 border-r border-white/10 backdrop-blur-2xl z-40 transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] flex flex-col shadow-[12px_0_40px_rgba(0,0,0,0.65)]"
     :class="isLayerPanelOpen ? 'translate-x-0' : '-translate-x-full'"
     aria-label="Layer Visualizer"
     @pointerdown.stop
@@ -301,17 +301,12 @@ function onCardDragEnd() {
           <span>Top = #1</span>
         </div>
         <div
-          class="relative w-full aspect-[390/490] sm:aspect-[860/330] rounded-xl bg-slate-950/90 border border-white/15 overflow-hidden shadow-inner"
+          class="relative w-full aspect-[860/330] rounded-xl bg-slate-950/90 border border-white/15 overflow-hidden shadow-inner"
         >
-          <!-- Desktop vertical perforation seam -->
+          <!-- Perforation seam (horizontal layout) -->
           <div
-            class="hidden sm:block pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-white/20"
+            class="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-white/20"
             :style="{ left: activeLayerFace === 'front' ? '71%' : '29%' }"
-          ></div>
-          <!-- Mobile portrait horizontal perforation seam -->
-          <div
-            class="sm:hidden pointer-events-none absolute left-0 right-0 border-t border-dashed border-white/20"
-            style="top: 71%"
           ></div>
 
           <button

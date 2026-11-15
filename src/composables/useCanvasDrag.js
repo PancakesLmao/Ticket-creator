@@ -1,4 +1,4 @@
-import { reactive, ref, computed } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
 import { CANVAS_LAYER_DEFINITIONS, CANVAS_LAYER_MAP } from '../constants/canvasLayers.js'
 import {
   CUSTOM_TEXT_STYLE_PRESETS,
@@ -38,6 +38,18 @@ const hoveredLayerId = ref(null)
 const isFlipped = ref(false)
 const isSidebarOpen = ref(false)
 const isLayerPanelOpen = ref(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true)
+
+watch(isSidebarOpen, (open) => {
+  if (open && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    isLayerPanelOpen.value = false
+  }
+})
+
+watch(isLayerPanelOpen, (open) => {
+  if (open && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    isSidebarOpen.value = false
+  }
+})
 const layoutVersion = ref(0)
 const editRegistryVersion = ref(0)
 const contextMenu = reactive({
@@ -1204,6 +1216,16 @@ export function resetAllLayerState(hiddenIds = []) {
 
 export function setLayerPanelOpen(open) {
   isLayerPanelOpen.value = Boolean(open)
+  if (isLayerPanelOpen.value && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    isSidebarOpen.value = false
+  }
+}
+
+export function setSidebarOpen(open) {
+  isSidebarOpen.value = Boolean(open)
+  if (isSidebarOpen.value && typeof window !== 'undefined' && window.innerWidth < 1024) {
+    isLayerPanelOpen.value = false
+  }
 }
 
 export function toggleLayerPanel() {
@@ -1490,6 +1512,7 @@ export function useCanvasDrag() {
     setActiveLayerFace,
     setHoveredLayer,
     setLayerPanelOpen,
+    setSidebarOpen,
     toggleLayerPanel,
     registerDragHistoryHooks,
     notifyDragStart,

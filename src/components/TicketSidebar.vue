@@ -1,8 +1,9 @@
 <script setup>
-import { ref, onUnmounted } from 'vue'
+import { ref, reactive, computed, onUnmounted } from 'vue'
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Upload,
   Image as ImageIcon,
   Palette,
@@ -81,16 +82,68 @@ const {
 } = useTicketData()
 
 const {
-  isLayerPanelOpen,
-  toggleLayerPanel,
   activeLayerFace,
   hasCustomOffsets,
-  hiddenLayersCount,
   resetAllOffsets,
   addCustomTextBox,
   notifyDragStart,
   notifyDragEnd,
 } = useCanvasDrag()
+
+const sectionOpen = reactive({
+  presets: false,
+  text: true,
+  emblem: false,
+  background: true,
+  foil: false,
+})
+
+function toggleSection(key) {
+  if (key in sectionOpen) {
+    sectionOpen[key] = !sectionOpen[key]
+  }
+}
+
+const currentPresetLabel = computed(() => {
+  const p = presetList?.find((item) => item.key === activePresetKey.value)
+  return p?.label || activePresetKey.value
+})
+
+const currentEmblemLabel = computed(() => {
+  if (emblemMode.value === 'logo') {
+    return customLogoUrl.value ? 'Custom Logo' : 'Logo'
+  }
+  const icon = ticketIconOptions?.find((i) => i.id === ticket.headerIcon)
+  return icon?.label || ticket.headerIcon
+})
+
+const currentBgLabel = computed(() => {
+  if (bgMode.value === 'color') {
+    return baseColor.value
+  }
+  if (customBgImage.value && customStubBgImage.value) {
+    return '2 Images'
+  }
+  if (customBgImage.value || customStubBgImage.value) {
+    return '1 Image'
+  }
+  return 'Default'
+})
+
+const currentFoilLabel = computed(() => {
+  if (foilMode.value === 'rainbow') return 'Rainbow'
+  if (foilMode.value === 'transparent') return 'Clear'
+  return foilColor.value
+})
+
+const allExpanded = computed(() => Object.values(sectionOpen).every(Boolean))
+
+function toggleAllSections() {
+  const next = !allExpanded.value
+  for (const k in sectionOpen) {
+    sectionOpen[k] = next
+  }
+}
 
 const mainBgInputRef = ref(null)
 const stubBgInputRef = ref(null)
@@ -264,7 +317,7 @@ function onCustomHexCommit(event) {
 
 <template>
   <aside
-    class="fixed top-0 right-0 h-full w-80 xl:w-96 z-40 bg-slate-950/95 border-l border-white/15 backdrop-blur-2xl flex flex-col shadow-[-14px_0_40px_rgba(0,0,0,0.7)] transition-transform duration-300 ease-in-out select-text pointer-events-auto"
+    class="fixed top-0 right-0 h-full w-[calc(100vw-3rem)] sm:w-80 xl:w-96 z-40 bg-slate-950/95 border-l border-white/15 backdrop-blur-2xl flex flex-col shadow-[-14px_0_40px_rgba(0,0,0,0.7)] transition-transform duration-300 ease-in-out select-text pointer-events-auto"
     :class="isOpen ? 'translate-x-0' : 'translate-x-full'"
     aria-label="Ticket customization sidebar"
   >
@@ -290,9 +343,17 @@ function onCustomHexCommit(event) {
           <h2 class="text-xs font-display font-bold tracking-wider text-white uppercase truncate">
             Visual Style &amp; Presets
           </h2>
-          <p class="text-[10px] font-mono-code text-slate-400 truncate">
-            Drag unfocused boxes • Click selected to edit
-          </p>
+          <div class="flex items-center gap-1.5 text-[10px] font-mono-code text-slate-400">
+            <span class="truncate">Customizer Sections</span>
+            <span>•</span>
+            <button
+              type="button"
+              class="text-cyan-400 hover:text-cyan-300 transition-colors cursor-pointer"
+              @click="toggleAllSections"
+            >
+              {{ allExpanded ? 'Collapse All' : 'Expand All' }}
+            </button>
+          </div>
         </div>
         <div class="flex items-center gap-1.5 shrink-0">
           <button
@@ -305,194 +366,233 @@ function onCustomHexCommit(event) {
             <RotateCcw class="w-3 h-3" />
             <span>Reset Pos</span>
           </button>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[10px] font-mono-code font-bold tracking-wider transition-all cursor-pointer shrink-0"
-            :class="
-              isLayerPanelOpen
-                ? 'bg-cyan-500/20 border-cyan-400/50 text-cyan-200'
-                : 'bg-white/5 border-white/15 text-slate-300 hover:text-white hover:border-cyan-400/40'
-            "
-            title="Toggle Left Layer Visualizer"
-            @click="toggleLayerPanel"
-          >
-            <Layers class="w-3.5 h-3.5 text-cyan-300" />
-            <span>Layers</span>
-            <span
-              v-if="hiddenLayersCount > 0"
-              class="px-1 py-0.2 rounded bg-rose-500/30 text-rose-200 text-[8px]"
-            >
-              {{ hiddenLayersCount }}
-            </span>
-          </button>
         </div>
       </div>
     </div>
 
     <!-- Scrollable Controls Body -->
-    <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5 text-xs">
+    <div class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 text-xs">
       <!-- Section: Starter Presets -->
-      <div>
-        <label class="block text-[10px] font-mono-code uppercase tracking-wider text-slate-400 mb-2">
-          Starter Presets
-        </label>
-        <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
-          <button
-            v-for="preset in presetList"
-            :key="preset.key"
-            type="button"
-            class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            :class="
-              activePresetKey === preset.key
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setPreset(preset.key)"
-          >
-            <component :is="iconMap[preset.icon]" class="w-3.5 h-3.5 shrink-0" />
-            <span class="truncate uppercase">{{ preset.label }}</span>
-          </button>
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('presets')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Starter Presets
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ currentPresetLabel }}
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.presets }"
+          />
+        </button>
+
+        <div v-show="sectionOpen.presets" class="p-3 pt-1 border-t border-white/5 space-y-3">
+          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
+            <button
+              v-for="preset in presetList"
+              :key="preset.key"
+              type="button"
+              class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              :class="
+                activePresetKey === preset.key
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setPreset(preset.key)"
+            >
+              <component :is="iconMap[preset.icon]" class="w-3.5 h-3.5 shrink-0" />
+              <span class="truncate uppercase">{{ preset.label }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Section: Text Boxes & Elements -->
-      <div class="pt-4 border-t border-white/10 space-y-2.5">
-        <div class="flex items-center justify-between gap-2">
-          <label class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400">
-            Text Boxes &amp; Elements
-          </label>
-          <span class="text-[9px] font-mono-code uppercase text-cyan-300">
-            {{ activeLayerFace === 'front' ? 'Front Face' : 'Back Face' }}
-          </span>
-        </div>
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('text')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Text Boxes &amp; Elements
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ activeLayerFace === 'front' ? 'Front Face' : 'Back Face' }}
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.text }"
+          />
+        </button>
 
-        <div>
-          <button
-            type="button"
-            class="w-full py-2 px-2.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            @click="addCustomTextBox('headline')"
-          >
-            <Plus class="w-3.5 h-3.5 shrink-0" />
-            <span>Add Text Box</span>
-          </button>
-        </div>
+        <div v-show="sectionOpen.text" class="p-3 pt-1 border-t border-white/5 space-y-2.5">
+          <div>
+            <button
+              type="button"
+              class="w-full py-2 px-2.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              @click="addCustomTextBox('headline')"
+            >
+              <Plus class="w-3.5 h-3.5 shrink-0" />
+              <span>Add Text Box</span>
+            </button>
+          </div>
 
-        <div class="grid grid-cols-2 gap-1.5">
-          <button
-            v-for="styleItem in CUSTOM_TEXT_PRESET_LIST"
-            :key="styleItem.key"
-            type="button"
-            class="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/35 text-slate-300 hover:text-white font-mono-code text-[10px] transition-all cursor-pointer flex items-center gap-1.5"
-            @click="addCustomTextBox(styleItem.key)"
-          >
-            <Type class="w-3 h-3 text-cyan-300 shrink-0" />
-            <span class="truncate">{{ styleItem.label }}</span>
-          </button>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button
+              v-for="styleItem in CUSTOM_TEXT_PRESET_LIST"
+              :key="styleItem.key"
+              type="button"
+              class="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-cyan-400/35 text-slate-300 hover:text-white font-mono-code text-[10px] transition-all cursor-pointer flex items-center gap-1.5"
+              @click="addCustomTextBox(styleItem.key)"
+            >
+              <Type class="w-3 h-3 text-cyan-300 shrink-0" />
+              <span class="truncate">{{ styleItem.label }}</span>
+            </button>
+          </div>
         </div>
       </div>
 
       <!-- Section: Unified Ticket Emblem / Logo Toggle -->
-      <div class="pt-4 border-t border-white/10 space-y-3">
-        <div class="flex items-center justify-between">
-          <label class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400">
-            Ticket Emblem / Logo
-          </label>
-          <span class="text-[9px] font-mono-code uppercase text-cyan-300">
-            {{ emblemMode === 'logo' ? (customLogoUrl ? 'Custom Image' : 'Fallback Icon') : ticket.headerIcon }}
-          </span>
-        </div>
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('emblem')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Ticket Emblem / Logo
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ currentEmblemLabel }}
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.emblem }"
+          />
+        </button>
 
-        <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
-          <button
-            type="button"
-            class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            :class="
-              emblemMode === 'icon'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setEmblemMode('icon')"
-          >
-            <Sparkles class="w-3.5 h-3.5" />
-            <span>ICON EMBLEM</span>
-          </button>
-          <button
-            type="button"
-            class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
-            :class="
-              emblemMode === 'logo'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setEmblemMode('logo')"
-          >
-            <ImageIcon class="w-3.5 h-3.5" />
-            <span>UPLOAD LOGO</span>
-          </button>
-        </div>
-
-        <!-- Mode 1: Lucide Icon Picker -->
-        <div v-if="emblemMode === 'icon'" class="grid grid-cols-5 gap-1.5">
-          <button
-            v-for="item in ticketIconOptions"
-            :key="item.id"
-            type="button"
-            :title="item.label"
-            class="h-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer"
-            :class="
-              ticket.headerIcon === item.id
-                ? 'bg-cyan-500/25 border-cyan-400/60 text-cyan-200'
-                : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
-            "
-            @click="ticket.headerIcon = item.id"
-          >
-            <component :is="iconMap[item.id]" class="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <!-- Mode 2: Custom Logo Upload -->
-        <div v-else class="space-y-2.5">
-          <div class="flex items-center gap-2">
+        <div v-show="sectionOpen.emblem" class="p-3 pt-1 border-t border-white/5 space-y-3">
+          <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
             <button
               type="button"
-              class="flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all cursor-pointer text-[11px] font-medium"
-              @click="logoInputRef?.click()"
+              class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              :class="
+                emblemMode === 'icon'
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setEmblemMode('icon')"
             >
-              <Upload class="w-3.5 h-3.5 text-cyan-400" />
-              <span>{{ customLogoUrl ? 'Replace Logo' : 'Upload Logo' }}</span>
+              <Sparkles class="w-3.5 h-3.5" />
+              <span>ICON EMBLEM</span>
             </button>
-
             <button
-              v-if="customLogoUrl"
               type="button"
-              title="Remove custom logo"
-              class="py-2 px-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
-              @click="clearCustomLogo"
+              class="py-1.5 px-2 rounded-lg font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              :class="
+                emblemMode === 'logo'
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setEmblemMode('logo')"
             >
-              <Trash2 class="w-3.5 h-3.5" />
+              <ImageIcon class="w-3.5 h-3.5" />
+              <span>UPLOAD LOGO</span>
             </button>
           </div>
 
-          <div
-            v-if="customLogoUrl"
-            class="flex items-center gap-2.5 bg-white/[0.03] p-2 rounded-xl border border-white/10"
-          >
-            <div class="w-8 h-8 rounded-lg bg-black/40 border border-white/20 p-0.5 flex items-center justify-center shrink-0">
-              <img :src="customLogoUrl" alt="Logo preview" class="w-full h-full object-contain" />
+          <!-- Mode 1: Lucide Icon Picker -->
+          <div v-if="emblemMode === 'icon'" class="grid grid-cols-5 gap-1.5">
+            <button
+              v-for="item in ticketIconOptions"
+              :key="item.id"
+              type="button"
+              :title="item.label"
+              class="h-8 rounded-lg border flex items-center justify-center transition-all cursor-pointer"
+              :class="
+                ticket.headerIcon === item.id
+                  ? 'bg-cyan-500/25 border-cyan-400/60 text-cyan-200'
+                  : 'bg-white/5 border-white/10 text-slate-400 hover:text-white hover:border-white/25'
+              "
+              @click="ticket.headerIcon = item.id"
+            >
+              <component :is="iconMap[item.id]" class="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <!-- Mode 2: Custom Logo Upload -->
+          <div v-else class="space-y-2.5">
+            <div class="flex items-center gap-2">
+              <button
+                type="button"
+                class="flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all cursor-pointer text-[11px] font-medium"
+                @click="logoInputRef?.click()"
+              >
+                <Upload class="w-3.5 h-3.5 text-cyan-400" />
+                <span>{{ customLogoUrl ? 'Replace Logo' : 'Upload Logo' }}</span>
+              </button>
+
+              <button
+                v-if="customLogoUrl"
+                type="button"
+                title="Remove custom logo"
+                class="py-2 px-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
+                @click="clearCustomLogo"
+              >
+                <Trash2 class="w-3.5 h-3.5" />
+              </button>
             </div>
-            <span class="text-[10px] font-mono-code text-cyan-200 truncate">Custom Logo Active</span>
+
+            <div
+              v-if="customLogoUrl"
+              class="flex items-center gap-2.5 bg-white/[0.03] p-2 rounded-xl border border-white/10"
+            >
+              <div class="w-8 h-8 rounded-lg bg-black/40 border border-white/20 p-0.5 flex items-center justify-center shrink-0">
+                <img :src="customLogoUrl" alt="Logo preview" class="w-full h-full object-contain" />
+              </div>
+              <span class="text-[10px] font-mono-code text-cyan-200 truncate">Custom Logo Active</span>
+            </div>
+            <p v-else class="text-[10px] font-mono-code text-slate-400">
+              No logo uploaded yet — showing fallback icon until an image is uploaded.
+            </p>
           </div>
-          <p v-else class="text-[10px] font-mono-code text-slate-400">
-            No logo uploaded yet — showing fallback icon until an image is uploaded.
-          </p>
         </div>
       </div>
 
-      <!-- Section: Background & Contrast -->
-      <div class="pt-4 border-t border-white/10 space-y-3">
-        <label class="block text-[10px] font-mono-code uppercase tracking-wider text-slate-400">
-          Glass Background &amp; Visuals
-        </label>
+      <!-- Section: Glass Background & Visuals -->
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('background')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Glass Background &amp; Visuals
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ currentBgLabel }}
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.background }"
+          />
+        </button>
+
+        <div v-show="sectionOpen.background" class="p-3 pt-1 border-t border-white/5 space-y-3">
 
         <div class="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/5 border border-white/10">
           <button
@@ -1042,112 +1142,132 @@ function onCustomHexCommit(event) {
           </span>
         </button>
       </div>
+    </div>
 
       <!-- Section: Holographic Foil & Accent -->
-      <div class="pt-4 border-t border-white/10 space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <label class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400">
-            Holographic Foil &amp; Accent
-          </label>
-          <button
-            type="button"
-            class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/35 text-[9px] font-mono-code font-bold uppercase text-cyan-200 transition-colors cursor-pointer"
-            title="Auto-adjust Foil, Primary Tag & Secondary Tag colors to match current background"
-            @click="autoMatchAccentToBackground"
-          >
-            <Sparkles class="w-3 h-3 text-cyan-300" />
-            <span>{{ smartPalette ? 'Synced to BG' : 'Auto-Match BG' }}</span>
-          </button>
-        </div>
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('foil')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Holographic Foil &amp; Accent
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ currentFoilLabel }}
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.foil }"
+          />
+        </button>
 
-        <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10 text-center">
-          <button
-            type="button"
-            class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
-            :class="
-              foilMode === 'rainbow'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setFoilMode('rainbow')"
-          >
-            <Sparkles class="w-3 h-3" />
-            <span>RAINBOW</span>
-          </button>
-          <button
-            type="button"
-            class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
-            :class="
-              foilMode === 'color'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setFoilMode('color')"
-          >
-            <Palette class="w-3 h-3" />
-            <span>COLOR</span>
-          </button>
-          <button
-            type="button"
-            class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
-            :class="
-              foilMode === 'transparent'
-                ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
-                : 'text-slate-400 hover:text-white'
-            "
-            @click="setFoilMode('transparent')"
-          >
-            <Layers class="w-3 h-3" />
-            <span>CLEAR</span>
-          </button>
-        </div>
+        <div v-show="sectionOpen.foil" class="p-3 pt-1 border-t border-white/5 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400">Accent Style</span>
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-400/35 text-[9px] font-mono-code font-bold uppercase text-cyan-200 transition-colors cursor-pointer"
+              title="Auto-adjust Foil, Primary Tag & Secondary Tag colors to match current background"
+              @click="autoMatchAccentToBackground"
+            >
+              <Sparkles class="w-3 h-3 text-cyan-300" />
+              <span>{{ smartPalette ? 'Synced to BG' : 'Auto-Match BG' }}</span>
+            </button>
+          </div>
 
-        <div v-if="foilMode === 'color'" class="space-y-2 bg-white/[0.03] p-2.5 rounded-xl border border-white/10">
-          <div class="flex items-center justify-between text-[9px] font-mono-code text-slate-400">
-            <span>METALLIC PRESETS</span>
-            <div class="flex items-center gap-1">
-              <input
-                type="color"
-                :value="foilColor"
-                class="w-4 h-4 rounded cursor-pointer border border-white/20 bg-transparent p-0"
-                title="Pick custom foil color"
-                @input="setFoilColor($event.target.value)"
-              />
-              <span class="text-[9px] text-white uppercase">{{ foilColor }}</span>
+          <div class="grid grid-cols-3 gap-1 p-1 rounded-xl bg-white/5 border border-white/10 text-center">
+            <button
+              type="button"
+              class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+              :class="
+                foilMode === 'rainbow'
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setFoilMode('rainbow')"
+            >
+              <Sparkles class="w-3 h-3" />
+              <span>RAINBOW</span>
+            </button>
+            <button
+              type="button"
+              class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+              :class="
+                foilMode === 'color'
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setFoilMode('color')"
+            >
+              <Palette class="w-3 h-3" />
+              <span>COLOR</span>
+            </button>
+            <button
+              type="button"
+              class="py-1.5 px-1 rounded-lg font-mono-code text-[9px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1"
+              :class="
+                foilMode === 'transparent'
+                  ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/40 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              "
+              @click="setFoilMode('transparent')"
+            >
+              <Layers class="w-3 h-3" />
+              <span>CLEAR</span>
+            </button>
+          </div>
+
+          <div v-if="foilMode === 'color'" class="space-y-2 bg-white/[0.03] p-2.5 rounded-xl border border-white/10">
+            <div class="flex items-center justify-between text-[9px] font-mono-code text-slate-400">
+              <span>METALLIC PRESETS</span>
+              <div class="flex items-center gap-1">
+                <input
+                  type="color"
+                  :value="foilColor"
+                  class="w-4 h-4 rounded cursor-pointer border border-white/20 bg-transparent p-0"
+                  title="Pick custom foil color"
+                  @input="setFoilColor($event.target.value)"
+                />
+                <span class="text-[9px] text-white uppercase">{{ foilColor }}</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-6 gap-1.5 pt-1">
+              <button
+                v-for="preset in foilPresets"
+                :key="preset.id"
+                type="button"
+                :title="preset.name"
+                class="h-6 rounded-md border transition-all cursor-pointer flex items-center justify-center shadow-sm"
+                :class="
+                  foilColor.toLowerCase() === preset.hex.toLowerCase()
+                    ? 'border-cyan-400 ring-2 ring-cyan-400/30 scale-105'
+                    : 'border-white/20 hover:border-white/50'
+                "
+                :style="{ backgroundColor: preset.hex }"
+                @click="setFoilColor(preset.hex)"
+              >
+                <Check
+                  v-if="foilColor.toLowerCase() === preset.hex.toLowerCase()"
+                  class="w-3 h-3"
+                  :class="getHexLuminance(preset.hex) > 135 ? 'text-slate-900' : 'text-white'"
+                />
+              </button>
             </div>
           </div>
 
-          <div class="grid grid-cols-6 gap-1.5 pt-1">
-            <button
-              v-for="preset in foilPresets"
-              :key="preset.id"
-              type="button"
-              :title="preset.name"
-              class="h-6 rounded-md border transition-all cursor-pointer flex items-center justify-center shadow-sm"
-              :class="
-                foilColor.toLowerCase() === preset.hex.toLowerCase()
-                  ? 'border-cyan-400 ring-2 ring-cyan-400/30 scale-105'
-                  : 'border-white/20 hover:border-white/50'
-              "
-              :style="{ backgroundColor: preset.hex }"
-              @click="setFoilColor(preset.hex)"
-            >
-              <Check
-                v-if="foilColor.toLowerCase() === preset.hex.toLowerCase()"
-                class="w-3 h-3"
-                :class="getHexLuminance(preset.hex) > 135 ? 'text-slate-900' : 'text-white'"
-              />
-            </button>
+          <div
+            v-else-if="foilMode === 'transparent'"
+            class="p-2 rounded-lg bg-white/[0.03] border border-white/10 text-[10px] font-mono-code text-slate-400"
+          >
+            Frosted transparent glass mode — foil strip and badge background set to clear glass.
           </div>
         </div>
-
-        <div
-          v-else-if="foilMode === 'transparent'"
-          class="p-2 rounded-lg bg-white/[0.03] border border-white/10 text-[10px] font-mono-code text-slate-400"
-        >
-          Frosted transparent glass mode — foil strip and badge background set to clear glass.
-        </div>
       </div>
-    </div>
-  </aside>
+  </div>
+</aside>
 </template>
