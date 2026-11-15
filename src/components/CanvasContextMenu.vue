@@ -15,6 +15,7 @@ import {
   Copy,
   ClipboardPaste,
   CopyPlus,
+  Palette,
 } from '@lucide/vue'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
@@ -43,6 +44,8 @@ const {
   pasteLayers,
   duplicateSelectedLayers,
   setCustomLayerStylePreset,
+  setTextBoxColor,
+  resetTextBoxColor,
   bringToFront,
   bringForward,
   sendBackward,
@@ -68,6 +71,42 @@ const customTargetLayer = computed(() => {
   if (selectedIds.value.length > 1 || !contextMenu.targetId) return null
   return customLayers.find((item) => item.id === contextMenu.targetId) || null
 })
+
+const activeTextBox = computed(() => {
+  if (targetTextBox.value) return targetTextBox.value
+  if (contextMenu.targetId) {
+    const boxes = getBlockTextBoxes(contextMenu.targetId).filter(
+      (b) => !b.isRemoved(ticket)
+    )
+    return boxes[0] || null
+  }
+  return null
+})
+
+const currentBoxColor = computed(() => {
+  if (!activeTextBox.value) return '#ffffff'
+  const custom = ticket.customBoxColors?.[activeTextBox.value.id]
+  if (custom) return custom
+  if (activeTextBox.value.colorKey) {
+    return ticket[activeTextBox.value.colorKey] || activeTextBox.value.defaultColor || '#ffffff'
+  }
+  return activeTextBox.value.defaultColor || '#ffffff'
+})
+
+const hasBoxCustomColor = computed(() => {
+  if (!activeTextBox.value) return false
+  return Boolean(ticket.customBoxColors?.[activeTextBox.value.id])
+})
+
+function onContextMenuColorChange(hex) {
+  if (!activeTextBox.value) return
+  setTextBoxColor(activeTextBox.value.id, hex)
+}
+
+function onContextMenuResetColor() {
+  if (!activeTextBox.value) return
+  resetTextBoxColor(activeTextBox.value.id)
+}
 
 const hasMultipleTextBoxesInBlock = computed(() => {
   if (!targetTextBox.value?.blockId) return false
@@ -176,6 +215,33 @@ onUnmounted(() => {
           </div>
         </div>
       </template>
+
+      <!-- Per-Textbox Color Option in Context Menu -->
+      <div v-if="activeTextBox" class="px-3 py-1.5 border-b border-white/10 flex items-center justify-between gap-2">
+        <label class="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+          <Palette class="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span class="truncate">Text Color</span>
+          <span
+            class="w-4 h-4 rounded-full border border-white/40 shrink-0 shadow-sm ml-auto"
+            :style="{ backgroundColor: currentBoxColor }"
+          ></span>
+          <input
+            type="color"
+            :value="currentBoxColor"
+            class="sr-only"
+            @input="onContextMenuColorChange($event.target.value)"
+          />
+        </label>
+        <button
+          v-if="hasBoxCustomColor"
+          type="button"
+          class="p-1 rounded text-slate-400 hover:text-amber-300 transition-colors cursor-pointer"
+          title="Reset to default color"
+          @click="onContextMenuResetColor"
+        >
+          <RotateCcw class="w-3 h-3" />
+        </button>
+      </div>
 
       <button
         type="button"

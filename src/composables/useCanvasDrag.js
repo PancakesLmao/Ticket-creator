@@ -556,6 +556,9 @@ function removeCustomLayerRecord(blockId, ticketArg = null) {
     if (ticket?.customBoxTexts) {
       delete ticket.customBoxTexts[boxDef.id]
     }
+    if (ticket?.customBoxColors) {
+      delete ticket.customBoxColors[boxDef.id]
+    }
     if (ticket?.removedTextBoxes) {
       delete ticket.removedTextBoxes[boxDef.id]
     }
@@ -793,6 +796,26 @@ function getNextFaceZIndex(face) {
   return maxZ + 1
 }
 
+export function setTextBoxColor(textBoxId, color = null, ticketArg = null) {
+  const ticket = ticketArg || ticketAccessor()
+  if (!ticket || !textBoxId) return false
+  if (!ticket.customBoxColors) {
+    ticket.customBoxColors = {}
+  }
+  const cleanColor = color ? String(color).trim() : null
+  if (!cleanColor) {
+    delete ticket.customBoxColors[textBoxId]
+  } else {
+    ticket.customBoxColors[textBoxId] = cleanColor
+  }
+  bumpLayout()
+  return true
+}
+
+export function resetTextBoxColor(textBoxId, ticketArg = null) {
+  return setTextBoxColor(textBoxId, null, ticketArg)
+}
+
 export function addCustomTextBox(presetKey = 'headline', options = {}) {
   const preset = CUSTOM_TEXT_STYLE_PRESETS[presetKey] || CUSTOM_TEXT_STYLE_PRESETS.headline
   const face = options.face || activeLayerFace.value
@@ -952,6 +975,7 @@ function buildLayerCloneSpec(sourceId) {
           value: liveBox
             ? liveBox.getValue(ticket)
             : ticket?.customBoxTexts?.[boxDef.id] ?? '',
+          color: ticket?.customBoxColors?.[boxDef.id] || null,
           removed: liveBox ? liveBox.isRemoved(ticket) : false,
         }
       }),
@@ -981,6 +1005,7 @@ function buildLayerCloneSpec(sourceId) {
       stylePreset: null,
       label: b.label,
       value: b.getValue(ticket),
+      color: ticket?.customBoxColors?.[b.id] || null,
       removed: b.isRemoved(ticket),
     })),
   }
@@ -1027,10 +1052,14 @@ function spawnClonedLayers(specs, deltaX, deltaY, { targetFace = null } = {}) {
 
     if (ticket) {
       if (!ticket.customBoxTexts) ticket.customBoxTexts = {}
+      if (!ticket.customBoxColors) ticket.customBoxColors = {}
       if (!ticket.removedTextBoxes) ticket.removedTextBoxes = {}
       clonedBoxes.forEach((boxDef, idx) => {
         const srcBox = spec.boxes[idx]
         ticket.customBoxTexts[boxDef.id] = srcBox?.value ?? ''
+        if (srcBox?.color) {
+          ticket.customBoxColors[boxDef.id] = srcBox.color
+        }
         if (srcBox?.removed) {
           ticket.removedTextBoxes[boxDef.id] = true
         }
@@ -1164,6 +1193,7 @@ export function resetAllLayerState(hiddenIds = []) {
   const ticket = ticketAccessor()
   if (ticket) {
     ticket.customBoxTexts = {}
+    ticket.customBoxColors = {}
   }
   groupCounter = 0
   customCounter = 0
@@ -1496,6 +1526,8 @@ export function useCanvasDrag() {
     reorderLayerByDrop,
     addCustomTextBox,
     setCustomLayerStylePreset,
+    setTextBoxColor,
+    resetTextBoxColor,
     copySelectedLayers,
     pasteLayers,
     duplicateSelectedLayers,

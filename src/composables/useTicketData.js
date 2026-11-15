@@ -21,6 +21,8 @@ import {
 } from './useCanvasDrag.js'
 
 const TICKET_ASPECT = 860 / 330
+const MAIN_ASPECT = (860 * 0.71) / 330
+const STUB_ASPECT = (860 * 0.29) / 330
 
 function extractPresetFields(preset) {
   const copy = { ...preset }
@@ -52,13 +54,19 @@ const baseColor = ref('#0f172a')
 const foilMode = ref('rainbow') // 'rainbow' | 'color' | 'transparent'
 const foilColor = ref('#e2e8f0')
 const customBgImage = ref(null)
+const customStubBgImage = ref(null)
 const customLogoUrl = ref(null)
 const bgOpacity = ref(DEFAULT_BG_OPACITY)
+const stubBgOpacity = ref(DEFAULT_BG_OPACITY)
 const overlayOpacity = ref(DEFAULT_OVERLAY_OPACITY)
 const bgPosX = ref(50)
 const bgPosY = ref(50)
 const bgZoom = ref(100)
 const bgImageAspect = ref(null)
+const stubBgPosX = ref(50)
+const stubBgPosY = ref(50)
+const stubBgZoom = ref(100)
+const stubBgImageAspect = ref(null)
 const isLightBg = ref(false)
 const smartPalette = ref(null)
 const isAutoAccentEnabled = ref(true)
@@ -75,10 +83,23 @@ watch(customBgImage, (url) => {
   })
 })
 
+watch(customStubBgImage, (url) => {
+  if (!url) {
+    stubBgImageAspect.value = null
+    return
+  }
+  measureImageAspect(url).then((aspect) => {
+    if (customStubBgImage.value === url) {
+      stubBgImageAspect.value = aspect
+    }
+  })
+})
+
 const ticket = reactive({
   ...extractPresetFields(presets.commencement),
   removedTextBoxes: {},
   customBoxTexts: {},
+  customBoxColors: {},
 })
 let bgDetectionToken = 0
 
@@ -125,6 +146,7 @@ export function setPreset(key) {
   Object.assign(ticket, extractPresetFields(presets[key]), {
     removedTextBoxes: {},
     customBoxTexts: {},
+    customBoxColors: {},
   })
   resetAllLayerState(presets[key].hiddenLayers || [])
   if (isAutoAccentEnabled.value && ((bgMode.value === 'image' && customBgImage.value) || bgMode.value === 'color')) {
@@ -195,7 +217,16 @@ export function setBaseColor(hex) {
   }
 }
 
-export function setBgPosition(x, y) {
+export function setBgPosition(x, y, target = 'main') {
+  if (target === 'stub') {
+    if (Number.isFinite(x)) {
+      stubBgPosX.value = Math.max(0, Math.min(100, Math.round(x * 10) / 10))
+    }
+    if (Number.isFinite(y)) {
+      stubBgPosY.value = Math.max(0, Math.min(100, Math.round(y * 10) / 10))
+    }
+    return
+  }
   if (Number.isFinite(x)) {
     bgPosX.value = Math.max(0, Math.min(100, Math.round(x * 10) / 10))
   }
@@ -204,27 +235,44 @@ export function setBgPosition(x, y) {
   }
 }
 
-export function setBgZoom(zoom) {
+export function setBgZoom(zoom, target = 'main') {
   if (Number.isFinite(zoom)) {
-    bgZoom.value = Math.max(50, Math.min(250, Math.round(zoom)))
+    const val = Math.max(50, Math.min(250, Math.round(zoom)))
+    if (target === 'stub') {
+      stubBgZoom.value = val
+    } else {
+      bgZoom.value = val
+    }
   }
 }
 
-export function resetBgPosition() {
-  bgPosX.value = 50
-  bgPosY.value = 50
-  bgZoom.value = 100
+export function resetBgPosition(target = 'all') {
+  if (target === 'main' || target === 'all') {
+    bgPosX.value = 50
+    bgPosY.value = 50
+    bgZoom.value = 100
+  }
+  if (target === 'stub' || target === 'all') {
+    stubBgPosX.value = 50
+    stubBgPosY.value = 50
+    stubBgZoom.value = 100
+  }
 }
 
-export function panBgByDelta(startPosX, startPosY, dx, dy, width, height) {
+const hasStubImage = computed(() => Boolean(customStubBgImage.value))
+
+export function panBgByDelta(startPosX, startPosY, dx, dy, width, height, target = 'main') {
+  const isStub = target === 'stub'
   const w = Math.max(width || 1, 1)
   const h = Math.max(height || 1, 1)
-  const aspect = bgImageAspect.value || 1
-  const zoomRatio = bgZoom.value / 100
+  const aspect = (isStub ? stubBgImageAspect.value : bgImageAspect.value) || 1
+  const zoom = isStub ? stubBgZoom.value : bgZoom.value
+  const zoomRatio = zoom / 100
+  const containerAspect = isStub ? STUB_ASPECT : (hasStubImage.value ? MAIN_ASPECT : TICKET_ASPECT)
   let imgW
   let imgH
 
-  if (bgZoom.value === 100) {
+  if (zoom === 100) {
     if (aspect >= w / h) {
       imgH = h
       imgW = h * aspect
@@ -232,7 +280,7 @@ export function panBgByDelta(startPosX, startPosY, dx, dy, width, height) {
       imgW = w
       imgH = w / aspect
     }
-  } else if (aspect >= TICKET_ASPECT) {
+  } else if (aspect >= containerAspect) {
     imgH = h * zoomRatio
     imgW = imgH * aspect
   } else {
@@ -247,12 +295,17 @@ export function panBgByDelta(startPosX, startPosY, dx, dy, width, height) {
 
   setBgPosition(
     startPosX + (dx / divisorX) * 100,
-    startPosY + (dy / divisorY) * 100
+    startPosY + (dy / divisorY) * 100,
+    target
   )
 }
 
 const hasCustomBgTransform = computed(
   () => bgPosX.value !== 50 || bgPosY.value !== 50 || bgZoom.value !== 100
+)
+
+const hasCustomStubBgTransform = computed(
+  () => stubBgPosX.value !== 50 || stubBgPosY.value !== 50 || stubBgZoom.value !== 100
 )
 
 const bgImageStyle = computed(() => {
@@ -261,7 +314,8 @@ const bgImageStyle = computed(() => {
   let backgroundSize = 'cover'
   if (zoom !== 100) {
     const aspect = bgImageAspect.value || 1
-    backgroundSize = aspect >= TICKET_ASPECT ? `auto ${zoom}%` : `${zoom}% auto`
+    const targetAspect = hasStubImage.value ? MAIN_ASPECT : TICKET_ASPECT
+    backgroundSize = aspect >= targetAspect ? `auto ${zoom}%` : `${zoom}% auto`
   }
   return {
     backgroundImage: `url(${customBgImage.value})`,
@@ -271,10 +325,26 @@ const bgImageStyle = computed(() => {
   }
 })
 
+const stubBgImageStyle = computed(() => {
+  if (!customStubBgImage.value) return {}
+  const zoom = stubBgZoom.value
+  let backgroundSize = 'cover'
+  if (zoom !== 100) {
+    const aspect = stubBgImageAspect.value || 1
+    backgroundSize = aspect >= STUB_ASPECT ? `auto ${zoom}%` : `${zoom}% auto`
+  }
+  return {
+    backgroundImage: `url(${customStubBgImage.value})`,
+    backgroundPosition: `${stubBgPosX.value}% ${stubBgPosY.value}%`,
+    backgroundSize,
+    opacity: stubBgOpacity.value,
+  }
+})
+
 export async function setCustomBg(url) {
   customBgImage.value = url
   bgMode.value = 'image'
-  resetBgPosition()
+  resetBgPosition('main')
   const token = ++bgDetectionToken
   if (url) {
     const [palette, aspect] = await Promise.all([
@@ -288,9 +358,37 @@ export async function setCustomBg(url) {
     }
   } else {
     bgImageAspect.value = null
-    smartPalette.value = null
-    isLightBg.value = false
+    if (!customStubBgImage.value) {
+      smartPalette.value = null
+      isLightBg.value = false
+    }
   }
+}
+
+export async function setCustomStubBg(url) {
+  customStubBgImage.value = url
+  bgMode.value = 'image'
+  resetBgPosition('stub')
+  if (url) {
+    const aspect = await measureImageAspect(url)
+    if (customStubBgImage.value === url) {
+      stubBgImageAspect.value = aspect
+    }
+  } else {
+    stubBgImageAspect.value = null
+  }
+}
+
+export function clearCustomStubBg() {
+  customStubBgImage.value = null
+  stubBgImageAspect.value = null
+  stubBgOpacity.value = DEFAULT_BG_OPACITY
+  resetBgPosition('stub')
+}
+
+export function clearAllCustomBg() {
+  clearCustomBg()
+  clearCustomStubBg()
 }
 
 export function setCustomLogo(url) {
@@ -309,12 +407,14 @@ export function clearCustomBg() {
   bgDetectionToken++
   customBgImage.value = null
   bgImageAspect.value = null
-  resetBgPosition()
-  smartPalette.value = null
-  isLightBg.value = false
-  const preset = presets[activePresetKey.value] || presets.commencement
-  ticket.degreeColor = preset.degreeColor
-  ticket.honorsColor = preset.honorsColor
+  resetBgPosition('main')
+  if (!customStubBgImage.value) {
+    smartPalette.value = null
+    isLightBg.value = false
+    const preset = presets[activePresetKey.value] || presets.commencement
+    ticket.degreeColor = preset.degreeColor
+    ticket.honorsColor = preset.honorsColor
+  }
 }
 
 export function toggleThemeMode() {
@@ -398,6 +498,7 @@ const foilStyles = computed(() => {
 
 export function resetOpacities() {
   bgOpacity.value = DEFAULT_BG_OPACITY
+  stubBgOpacity.value = DEFAULT_BG_OPACITY
   overlayOpacity.value = DEFAULT_OVERLAY_OPACITY
 }
 
@@ -429,14 +530,22 @@ export function useTicketData() {
     setFoilMode,
     setFoilColor,
     customBgImage,
+    customStubBgImage,
     customLogoUrl,
     bgOpacity,
+    stubBgOpacity,
     overlayOpacity,
     bgPosX,
     bgPosY,
     bgZoom,
+    stubBgPosX,
+    stubBgPosY,
+    stubBgZoom,
     bgImageStyle,
+    stubBgImageStyle,
+    hasStubImage,
     hasCustomBgTransform,
+    hasCustomStubBgTransform,
     DEFAULT_BG_OPACITY,
     DEFAULT_OVERLAY_OPACITY,
     isLightBg,
@@ -445,7 +554,10 @@ export function useTicketData() {
     setBaseColor,
     getHexLuminance,
     setCustomBg,
+    setCustomStubBg,
     clearCustomBg,
+    clearCustomStubBg,
+    clearAllCustomBg,
     setBgPosition,
     setBgZoom,
     resetBgPosition,

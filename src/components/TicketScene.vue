@@ -14,8 +14,18 @@ const isFlipped = defineModel('isFlipped', {
   default: false,
 })
 
-const { interactionMode, isEditingField, bgMode, customBgImage, bgPosX, bgPosY, panBgByDelta } =
-  useTicketData()
+const {
+  interactionMode,
+  isEditingField,
+  bgMode,
+  customBgImage,
+  customStubBgImage,
+  bgPosX,
+  bgPosY,
+  stubBgPosX,
+  stubBgPosY,
+  panBgByDelta,
+} = useTicketData()
 const {
   selectedIds,
   hasClipboardLayers,
@@ -60,6 +70,8 @@ function toggleFlip() {
   setFlipped(!isFlipped.value)
 }
 
+let sceneBgTarget = 'main'
+
 function onSceneBgPointerMove(e) {
   if (sceneBgPointerId !== null && e.pointerId !== sceneBgPointerId) return
   const dx = e.clientX - sceneBgStartX
@@ -77,7 +89,8 @@ function onSceneBgPointerMove(e) {
       effectiveDx,
       dy,
       sceneBgRect.width,
-      sceneBgRect.height
+      sceneBgRect.height,
+      sceneBgTarget
     )
   }
 }
@@ -102,14 +115,31 @@ function onScenePointerDown(e) {
   const target = e.target
   if (!target?.closest?.('.canvas-draggable, .canvas-editable, button, input, textarea')) {
     clearSelection()
-    if (e.isPrimary && e.button === 0 && bgMode.value === 'image' && customBgImage.value) {
+    if (e.isPrimary && e.button === 0 && bgMode.value === 'image' && (customBgImage.value || customStubBgImage.value)) {
       const rect = sceneElement.value?.getBoundingClientRect()
       if (!rect || rect.width <= 0 || rect.height <= 0) return
+
+      let targetArea = 'main'
+      if (customStubBgImage.value) {
+        const relX = (e.clientX - rect.left) / rect.width
+        const relY = (e.clientY - rect.top) / rect.height
+        const isMobile = window.innerWidth < 640
+        const isStub = isMobile
+          ? relY >= 0.68
+          : (!isFlipped.value ? relX >= 0.71 : relX <= 0.29)
+        if (isStub || !customBgImage.value) {
+          targetArea = 'stub'
+        }
+      } else if (!customBgImage.value) {
+        return
+      }
+
+      sceneBgTarget = targetArea
       sceneBgRect = { width: rect.width, height: rect.height }
       sceneBgStartX = e.clientX
       sceneBgStartY = e.clientY
-      sceneBgInitPosX = bgPosX.value
-      sceneBgInitPosY = bgPosY.value
+      sceneBgInitPosX = targetArea === 'stub' ? stubBgPosX.value : bgPosX.value
+      sceneBgInitPosY = targetArea === 'stub' ? stubBgPosY.value : bgPosY.value
       sceneBgPointerId = e.pointerId
       hasSceneBgMoved = false
       window.addEventListener('pointermove', onSceneBgPointerMove)
@@ -241,7 +271,10 @@ defineExpose({
     class="ticket-scene"
     :class="{
       'is-canvas-mode': interactionMode === 'edit',
-      'has-custom-bg': interactionMode === 'edit' && bgMode === 'image' && Boolean(customBgImage),
+      'has-custom-bg':
+        interactionMode === 'edit' &&
+        bgMode === 'image' &&
+        Boolean(customBgImage || customStubBgImage),
       'is-dragging-bg': isDraggingSceneBg,
     }"
     :role="interactionMode === 'preview' ? 'button' : 'region'"

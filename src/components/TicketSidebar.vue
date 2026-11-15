@@ -17,7 +17,6 @@ import {
   Move,
   Plus,
   Type,
-  CopyPlus,
 } from '@lucide/vue'
 import { iconMap } from '../constants/ticketIcons.js'
 import { CUSTOM_TEXT_PRESET_LIST } from '../models/ticketTextBoxes.js'
@@ -51,17 +50,27 @@ const {
   setFoilMode,
   setFoilColor,
   customBgImage,
+  customStubBgImage,
   customLogoUrl,
   bgOpacity,
+  stubBgOpacity,
   overlayOpacity,
   bgPosX,
   bgPosY,
   bgZoom,
+  stubBgPosX,
+  stubBgPosY,
+  stubBgZoom,
   bgImageStyle,
+  stubBgImageStyle,
   hasCustomBgTransform,
+  hasCustomStubBgTransform,
   isLightBg,
   setCustomBg,
+  setCustomStubBg,
   clearCustomBg,
+  clearCustomStubBg,
+  clearAllCustomBg,
   setBgZoom,
   resetBgPosition,
   panBgByDelta,
@@ -74,21 +83,22 @@ const {
 const {
   isLayerPanelOpen,
   toggleLayerPanel,
-  selectedIds,
   activeLayerFace,
   hasCustomOffsets,
   hiddenLayersCount,
   resetAllOffsets,
   addCustomTextBox,
-  duplicateSelectedLayers,
   notifyDragStart,
   notifyDragEnd,
 } = useCanvasDrag()
 
-const bgInputRef = ref(null)
+const mainBgInputRef = ref(null)
+const stubBgInputRef = ref(null)
 const logoInputRef = ref(null)
 const bgPreviewRef = ref(null)
 const isDraggingBgPreview = ref(false)
+const selectedBgTarget = ref('main') // 'main' | 'stub'
+
 let bgPreviewStartX = 0
 let bgPreviewStartY = 0
 let bgPreviewInitPosX = 50
@@ -113,7 +123,8 @@ function onBgPreviewPointerMove(e) {
       dx,
       dy,
       bgPreviewRect.width,
-      bgPreviewRect.height
+      bgPreviewRect.height,
+      selectedBgTarget.value
     )
   }
 }
@@ -141,15 +152,19 @@ function stopBgPreviewDrag(e) {
 }
 
 function onBgPreviewPointerDown(e) {
-  if (!e.isPrimary || e.button !== 0 || !customBgImage.value) return
+  if (!e.isPrimary || e.button !== 0) return
+  const isStub = selectedBgTarget.value === 'stub'
+  const activeImage = isStub ? customStubBgImage.value : customBgImage.value
+  if (!activeImage) return
+
   e.preventDefault()
   const rect = bgPreviewRef.value?.getBoundingClientRect()
   if (!rect || rect.width <= 0 || rect.height <= 0) return
   bgPreviewRect = { width: rect.width, height: rect.height }
   bgPreviewStartX = e.clientX
   bgPreviewStartY = e.clientY
-  bgPreviewInitPosX = bgPosX.value
-  bgPreviewInitPosY = bgPosY.value
+  bgPreviewInitPosX = isStub ? stubBgPosX.value : bgPosX.value
+  bgPreviewInitPosY = isStub ? stubBgPosY.value : bgPosY.value
   bgPreviewPointerId = e.pointerId
   hasBgPreviewMoved = false
   if (bgPreviewRef.value?.setPointerCapture) {
@@ -165,21 +180,51 @@ function onBgPreviewPointerDown(e) {
 }
 
 function onBgPreviewWheel(e) {
-  if (!customBgImage.value) return
+  const isStub = selectedBgTarget.value === 'stub'
+  const activeImage = isStub ? customStubBgImage.value : customBgImage.value
+  if (!activeImage) return
   const step = e.deltaY < 0 ? 5 : -5
-  setBgZoom(bgZoom.value + step)
+  const currentZoom = isStub ? stubBgZoom.value : bgZoom.value
+  setBgZoom(currentZoom + step, selectedBgTarget.value)
 }
 
 onUnmounted(() => {
   stopBgPreviewDrag()
 })
 
-function onBgChange(e) {
+function onMainBgChange(e) {
+  const files = Array.from(e.target.files || [])
+  if (files.length === 0) return
+
+  if (files.length >= 2) {
+    const reader1 = new FileReader()
+    reader1.onload = (event) => {
+      setCustomBg(event.target.result)
+    }
+    reader1.readAsDataURL(files[0])
+
+    const reader2 = new FileReader()
+    reader2.onload = (event) => {
+      setCustomStubBg(event.target.result)
+    }
+    reader2.readAsDataURL(files[1])
+  } else {
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      setCustomBg(event.target.result)
+    }
+    reader.readAsDataURL(files[0])
+  }
+  e.target.value = ''
+}
+
+function onStubBgChange(e) {
   const file = e.target.files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = (event) => {
-    setCustomBg(event.target.result)
+    setCustomStubBg(event.target.result)
+    selectedBgTarget.value = 'stub'
   }
   reader.readAsDataURL(file)
   e.target.value = ''
@@ -234,7 +279,8 @@ function onCustomHexCommit(event) {
       <ChevronLeft v-else class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
     </button>
 
-    <input ref="bgInputRef" type="file" accept="image/*" class="hidden" @change="onBgChange" />
+    <input ref="mainBgInputRef" type="file" accept="image/*" multiple class="hidden" @change="onMainBgChange" />
+    <input ref="stubBgInputRef" type="file" accept="image/*" class="hidden" @change="onStubBgChange" />
     <input ref="logoInputRef" type="file" accept="image/*" class="hidden" @change="onLogoChange" />
 
     <!-- Sidebar Header & Quick Layer Panel Link -->
@@ -320,29 +366,14 @@ function onCustomHexCommit(event) {
           </span>
         </div>
 
-        <div class="grid grid-cols-2 gap-1.5">
+        <div>
           <button
             type="button"
-            class="py-2 px-2.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+            class="w-full py-2 px-2.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
             @click="addCustomTextBox('headline')"
           >
             <Plus class="w-3.5 h-3.5 shrink-0" />
             <span>Add Text Box</span>
-          </button>
-
-          <button
-            type="button"
-            :disabled="selectedIds.length === 0"
-            class="py-2 px-2.5 rounded-lg border font-mono-code text-[10px] font-bold tracking-wider transition-all flex items-center justify-center gap-1.5"
-            :class="
-              selectedIds.length > 0
-                ? 'bg-white/10 hover:bg-white/15 border-white/20 text-white cursor-pointer'
-                : 'bg-white/5 border-white/10 text-slate-500 cursor-not-allowed'
-            "
-            @click="selectedIds.length > 0 && duplicateSelectedLayers()"
-          >
-            <CopyPlus class="w-3.5 h-3.5 shrink-0" />
-            <span>Duplicate</span>
           </button>
         </div>
 
@@ -493,46 +524,237 @@ function onCustomHexCommit(event) {
         </div>
 
         <div v-if="bgMode === 'image'" class="space-y-3">
-          <div class="flex items-center gap-2">
+          <!-- Header with Clear Both Action when images exist -->
+          <div
+            v-if="customBgImage || customStubBgImage"
+            class="flex items-center justify-between text-[10px] font-mono-code text-slate-400"
+          >
+            <span class="tracking-wider uppercase">Background Images</span>
             <button
               type="button"
-              class="flex-1 inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-slate-200 hover:text-white transition-all cursor-pointer text-[11px] font-medium"
-              @click="bgInputRef?.click()"
+              class="inline-flex items-center gap-1 text-[9px] text-rose-300 hover:text-rose-200 transition-colors cursor-pointer"
+              title="Remove all uploaded background images"
+              @click="clearAllCustomBg"
             >
-              <Upload class="w-3.5 h-3.5 text-cyan-400" />
-              <span>{{ customBgImage ? 'Replace Image' : 'Upload BG Image' }}</span>
-            </button>
-
-            <button
-              v-if="customBgImage"
-              type="button"
-              title="Remove custom background image"
-              class="py-2 px-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
-              @click="clearCustomBg"
-            >
-              <Trash2 class="w-3.5 h-3.5" />
+              <Trash2 class="w-2.5 h-2.5" />
+              <span>Clear Both</span>
             </button>
           </div>
 
+          <!-- Dual Slot Cards: Main Body and Detachable Stub -->
+          <div class="space-y-2">
+            <!-- Slot 1: Main Body Background -->
+            <div
+              class="p-2.5 rounded-xl bg-white/[0.03] border transition-all"
+              :class="customBgImage ? 'border-cyan-500/30' : 'border-white/10'"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div
+                    v-if="customBgImage"
+                    class="w-8 h-8 rounded-lg bg-cover bg-center border border-white/20 shrink-0"
+                    :style="{ backgroundImage: `url(${customBgImage})` }"
+                  ></div>
+                  <div
+                    v-else
+                    class="w-8 h-8 rounded-lg bg-white/5 border border-dashed border-white/20 flex items-center justify-center text-slate-500 shrink-0"
+                  >
+                    <ImageIcon class="w-3.5 h-3.5" />
+                  </div>
+
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-semibold text-slate-200 truncate flex items-center gap-1.5">
+                      <span>Image 1: Main Body</span>
+                      <span
+                        class="text-[9px] font-mono-code px-1.5 py-0.2 rounded"
+                        :class="customStubBgImage ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'"
+                      >
+                        {{ customStubBgImage ? 'Main 71%' : 'Full 100%' }}
+                      </span>
+                    </div>
+                    <div class="text-[9px] font-mono-code text-slate-400 truncate">
+                      {{ customStubBgImage ? 'Main body & tear boundary' : 'Covers entire ticket' }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono-code text-slate-300 hover:text-white transition-all cursor-pointer"
+                    @click="mainBgInputRef?.click()"
+                  >
+                    <Upload class="w-3 h-3 text-cyan-400" />
+                    <span>{{ customBgImage ? 'Replace' : 'Upload' }}</span>
+                  </button>
+                  <button
+                    v-if="customBgImage"
+                    type="button"
+                    title="Remove main background image"
+                    class="p-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
+                    @click="clearCustomBg"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dedicated Opacity Slider for Image 1 -->
+              <div
+                v-if="customBgImage"
+                class="mt-2.5 pt-2 border-t border-white/10 space-y-1"
+              >
+                <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
+                  <span class="flex items-center gap-1 text-slate-400">
+                    <Sliders class="w-2.5 h-2.5 text-cyan-400" />
+                    <span>MAIN OPACITY</span>
+                  </span>
+                  <span class="text-cyan-200 font-bold">{{ Math.round(bgOpacity * 100) }}%</span>
+                </div>
+                <input
+                  v-model.number="bgOpacity"
+                  type="range"
+                  min="0.05"
+                  max="1.0"
+                  step="0.05"
+                  class="w-full accent-cyan-400 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <!-- Slot 2: Detachable Stub Background -->
+            <div
+              class="p-2.5 rounded-xl bg-white/[0.03] border transition-all"
+              :class="customStubBgImage ? 'border-pink-500/30' : 'border-white/10'"
+            >
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <div
+                    v-if="customStubBgImage"
+                    class="w-8 h-8 rounded-lg bg-cover bg-center border border-white/20 shrink-0"
+                    :style="{ backgroundImage: `url(${customStubBgImage})` }"
+                  ></div>
+                  <div
+                    v-else
+                    class="w-8 h-8 rounded-lg bg-white/5 border border-dashed border-white/20 flex items-center justify-center text-slate-500 shrink-0"
+                  >
+                    <Plus class="w-3.5 h-3.5" />
+                  </div>
+
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-semibold text-slate-200 truncate flex items-center gap-1.5">
+                      <span>Image 2: Detachable Stub</span>
+                      <span
+                        v-if="customStubBgImage"
+                        class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-pink-500/20 text-pink-300"
+                      >
+                        Stub 29%
+                      </span>
+                    </div>
+                    <div class="text-[9px] font-mono-code text-slate-400 truncate">
+                      {{ customStubBgImage ? 'Active on detachable stub' : 'Optional (stub uses Image 1)' }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    class="inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-mono-code text-slate-300 hover:text-white transition-all cursor-pointer"
+                    @click="stubBgInputRef?.click()"
+                  >
+                    <Upload v-if="customStubBgImage" class="w-3 h-3 text-pink-400" />
+                    <Plus v-else class="w-3 h-3 text-pink-400" />
+                    <span>{{ customStubBgImage ? 'Replace' : 'Upload' }}</span>
+                  </button>
+                  <button
+                    v-if="customStubBgImage"
+                    type="button"
+                    title="Remove detachable area image"
+                    class="p-1 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-all cursor-pointer"
+                    @click="clearCustomStubBg"
+                  >
+                    <Trash2 class="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dedicated Opacity Slider for Image 2 -->
+              <div
+                v-if="customStubBgImage"
+                class="mt-2.5 pt-2 border-t border-white/10 space-y-1"
+              >
+                <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
+                  <span class="flex items-center gap-1 text-slate-400">
+                    <Sliders class="w-2.5 h-2.5 text-pink-400" />
+                    <span>STUB OPACITY</span>
+                  </span>
+                  <span class="text-pink-200 font-bold">{{ Math.round(stubBgOpacity * 100) }}%</span>
+                </div>
+                <input
+                  v-model.number="stubBgOpacity"
+                  type="range"
+                  min="0.05"
+                  max="1.0"
+                  step="0.05"
+                  class="w-full accent-pink-400 cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Fit & Position Controls (if either image uploaded) -->
           <div
-            v-if="customBgImage"
+            v-if="customBgImage || customStubBgImage"
             class="space-y-2.5 bg-white/[0.03] p-2.5 rounded-xl border border-white/10"
           >
+            <!-- Target Selector & Reset Header -->
             <div class="flex items-center justify-between text-[9px] font-mono-code text-slate-400">
               <span class="flex items-center gap-1.5 text-cyan-200 font-semibold">
                 <Move class="w-3 h-3 text-cyan-400" />
                 <span>FIT &amp; POSITION</span>
               </span>
               <button
-                v-if="hasCustomBgTransform"
+                v-if="selectedBgTarget === 'main' ? hasCustomBgTransform : hasCustomStubBgTransform"
                 type="button"
                 class="inline-flex items-center gap-1 text-amber-300 hover:text-white transition-colors cursor-pointer"
-                @click="resetBgPosition"
+                @click="resetBgPosition(selectedBgTarget)"
               >
                 <RotateCcw class="w-2.5 h-2.5" />
                 <span>Reset Fit</span>
               </button>
               <span v-else class="text-slate-500">Drag frame / ticket</span>
+            </div>
+
+            <!-- Target Selection Tabs (when both images present) -->
+            <div
+              v-if="customBgImage && customStubBgImage"
+              class="grid grid-cols-2 gap-1 p-0.5 rounded-lg bg-black/40 border border-white/10 text-[9px] font-mono-code"
+            >
+              <button
+                type="button"
+                class="py-1 px-2 rounded font-semibold transition-all cursor-pointer text-center"
+                :class="
+                  selectedBgTarget === 'main'
+                    ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-400/30'
+                    : 'text-slate-400 hover:text-white'
+                "
+                @click="selectedBgTarget = 'main'"
+              >
+                Main Area (71%)
+              </button>
+              <button
+                type="button"
+                class="py-1 px-2 rounded font-semibold transition-all cursor-pointer text-center"
+                :class="
+                  selectedBgTarget === 'stub'
+                    ? 'bg-pink-500/25 text-pink-200 border border-pink-400/30'
+                    : 'text-slate-400 hover:text-white'
+                "
+                @click="selectedBgTarget = 'stub'"
+              >
+                Detachable Stub (29%)
+              </button>
             </div>
 
             <!-- Interactive Ticket-Aspect Drag Frame -->
@@ -544,10 +766,20 @@ function onCustomHexCommit(event) {
               @pointerdown="onBgPreviewPointerDown"
               @wheel.prevent="onBgPreviewWheel"
             >
+              <!-- Main Image Preview -->
               <div
+                v-if="selectedBgTarget === 'main' && customBgImage"
                 class="absolute inset-0 bg-no-repeat pointer-events-none"
                 :style="{ ...bgImageStyle, opacity: 1 }"
               ></div>
+              <!-- Stub Image Preview -->
+              <div
+                v-else-if="selectedBgTarget === 'stub' && customStubBgImage"
+                class="absolute inset-0 bg-no-repeat pointer-events-none"
+                :style="{ ...stubBgImageStyle, opacity: 1 }"
+              ></div>
+
+              <!-- Ticket Perforation Line Indicator -->
               <div
                 class="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-white/30"
                 style="left: 71%"
@@ -555,15 +787,20 @@ function onCustomHexCommit(event) {
               <div
                 class="pointer-events-none absolute bottom-1 right-1.5 px-1.5 py-0.5 rounded bg-slate-950/75 border border-white/10 text-[8px] font-mono-code text-slate-200 backdrop-blur-sm"
               >
-                {{ Math.round(bgPosX) }}% · {{ Math.round(bgPosY) }}% · {{ bgZoom }}%
+                <template v-if="selectedBgTarget === 'main'">
+                  {{ Math.round(bgPosX) }}% · {{ Math.round(bgPosY) }}% · {{ bgZoom }}%
+                </template>
+                <template v-else>
+                  {{ Math.round(stubBgPosX) }}% · {{ Math.round(stubBgPosY) }}% · {{ stubBgZoom }}%
+                </template>
               </div>
             </div>
 
-            <!-- Precision X / Y / Zoom Sliders -->
-            <div class="space-y-2 pt-0.5">
+            <!-- Precision X / Y / Zoom Sliders for Main Body -->
+            <div v-if="selectedBgTarget === 'main'" class="space-y-2 pt-0.5">
               <div class="space-y-1">
                 <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
-                  <span>HORIZONTAL (X)</span>
+                  <span>MAIN HORIZONTAL (X)</span>
                   <span class="text-cyan-200 font-bold">{{ Math.round(bgPosX) }}%</span>
                 </div>
                 <input
@@ -578,7 +815,7 @@ function onCustomHexCommit(event) {
 
               <div class="space-y-1">
                 <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
-                  <span>VERTICAL (Y)</span>
+                  <span>MAIN VERTICAL (Y)</span>
                   <span class="text-cyan-200 font-bold">{{ Math.round(bgPosY) }}%</span>
                 </div>
                 <input
@@ -593,11 +830,59 @@ function onCustomHexCommit(event) {
 
               <div class="space-y-1">
                 <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
-                  <span>SCALE / ZOOM</span>
+                  <span>MAIN SCALE / ZOOM</span>
                   <span class="text-pink-200 font-bold">{{ bgZoom }}%</span>
                 </div>
                 <input
                   v-model.number="bgZoom"
+                  type="range"
+                  min="50"
+                  max="250"
+                  step="5"
+                  class="w-full accent-pink-400 cursor-pointer"
+                />
+              </div>
+            </div>
+
+            <!-- Precision X / Y / Zoom Sliders for Detachable Stub -->
+            <div v-else class="space-y-2 pt-0.5">
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
+                  <span>STUB HORIZONTAL (X)</span>
+                  <span class="text-pink-200 font-bold">{{ Math.round(stubBgPosX) }}%</span>
+                </div>
+                <input
+                  v-model.number="stubBgPosX"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="w-full accent-pink-400 cursor-pointer"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
+                  <span>STUB VERTICAL (Y)</span>
+                  <span class="text-pink-200 font-bold">{{ Math.round(stubBgPosY) }}%</span>
+                </div>
+                <input
+                  v-model.number="stubBgPosY"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  class="w-full accent-pink-400 cursor-pointer"
+                />
+              </div>
+
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-[9px] font-mono-code text-slate-300">
+                  <span>STUB SCALE / ZOOM</span>
+                  <span class="text-pink-200 font-bold">{{ stubBgZoom }}%</span>
+                </div>
+                <input
+                  v-model.number="stubBgZoom"
                   type="range"
                   min="50"
                   max="250"
@@ -701,16 +986,16 @@ function onCustomHexCommit(event) {
             />
           </div>
 
-          <div v-if="bgMode === 'color' || customBgImage" class="space-y-1.5 pt-2 border-t border-white/10">
+          <div
+            v-if="bgMode === 'color'"
+            class="space-y-1.5 pt-2 border-t border-white/10"
+          >
             <div class="flex justify-between items-center text-[10px] font-mono-code text-slate-300">
               <span class="flex items-center gap-1.5">
-                <span
-                  class="w-1.5 h-1.5 rounded-full"
-                  :class="bgMode === 'color' ? 'bg-cyan-400' : 'bg-pink-400'"
-                ></span>
-                {{ bgMode === 'color' ? 'COLOR TINT OPACITY' : 'IMAGE OPACITY' }}
+                <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                COLOR TINT OPACITY
               </span>
-              <span class="font-bold" :class="bgMode === 'color' ? 'text-cyan-200' : 'text-pink-200'">
+              <span class="font-bold text-cyan-200">
                 {{ Math.round(bgOpacity * 100) }}%
               </span>
             </div>
@@ -720,8 +1005,7 @@ function onCustomHexCommit(event) {
               min="0.05"
               max="1.0"
               step="0.05"
-              class="w-full cursor-pointer"
-              :class="bgMode === 'color' ? 'accent-cyan-400' : 'accent-pink-400'"
+              class="w-full cursor-pointer accent-cyan-400"
             />
           </div>
 
@@ -862,39 +1146,6 @@ function onCustomHexCommit(event) {
           class="p-2 rounded-lg bg-white/[0.03] border border-white/10 text-[10px] font-mono-code text-slate-400"
         >
           Frosted transparent glass mode — foil strip and badge background set to clear glass.
-        </div>
-
-        <!-- Tag Accent Color Pickers (No text inputs — edit text directly on canvas) -->
-        <div class="grid grid-cols-2 gap-2 pt-1">
-          <label
-            class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 cursor-pointer hover:border-cyan-400/40 transition-colors"
-            title="Primary Tag / Route ID Accent Color"
-          >
-            <span class="text-[9px] font-mono-code uppercase text-slate-300 truncate">
-              Primary Tag
-            </span>
-            <input
-              type="color"
-              :value="ticket.degreeColor || '#a5f3fc'"
-              class="w-4 h-4 rounded cursor-pointer border border-white/20 bg-transparent p-0 shrink-0"
-              @input="ticket.degreeColor = $event.target.value"
-            />
-          </label>
-
-          <label
-            class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white/[0.03] border border-white/10 cursor-pointer hover:border-cyan-400/40 transition-colors"
-            title="Secondary Tag / Perk Accent Color"
-          >
-            <span class="text-[9px] font-mono-code uppercase text-slate-300 truncate">
-              Secondary Tag
-            </span>
-            <input
-              type="color"
-              :value="ticket.honorsColor || '#fef08a'"
-              class="w-4 h-4 rounded cursor-pointer border border-white/20 bg-transparent p-0 shrink-0"
-              @input="ticket.honorsColor = $event.target.value"
-            />
-          </label>
         </div>
       </div>
     </div>

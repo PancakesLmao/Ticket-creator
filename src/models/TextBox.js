@@ -86,7 +86,10 @@ export class TextBox {
 
   resolveTextStyle(ticket, extraStyle = {}) {
     const baseStyle = {}
-    if (this.colorKey && ticket) {
+    const customColor = ticket?.customBoxColors?.[this.id]
+    if (customColor) {
+      baseStyle.color = customColor
+    } else if (this.colorKey && ticket) {
       baseStyle.color = ticket[this.colorKey] || this.defaultColor || undefined
     } else if (this.defaultColor) {
       baseStyle.color = this.defaultColor

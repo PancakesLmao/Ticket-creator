@@ -68,17 +68,28 @@ const stageScale = computed(() => {
       <ChevronRight class="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
     </button>
 
+    <!-- Top-Level Status & Action Bar (Edit/3D Review, Undo/Redo, Layers, Restore, Reset) -->
+    <div
+      class="fixed top-3.5 sm:top-5 left-1/2 z-20 transition-[transform] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] pointer-events-none w-max max-w-[calc(100vw-24px)]"
+      :style="{
+        maxWidth: `calc(100vw - ${leftPushPx + rightPushPx + 24}px)`,
+        transform: `translateX(calc(-50% + ${(leftPushPx - rightPushPx) / 2}px))`,
+      }"
+    >
+      <div class="pointer-events-auto">
+        <TicketStatusBar />
+      </div>
+    </div>
+
     <!-- Main Ticket Stage: shifts smoothly as Left/Right drawers open -->
     <div
-      class="w-full min-h-screen flex flex-col items-center justify-center pt-4 sm:pt-8 pb-24 transition-[padding] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
+      class="w-full min-h-screen flex flex-col items-center justify-center pt-20 sm:pt-24 pb-24 transition-[padding] duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
       :style="{
         paddingLeft: `${leftPushPx + basePadX}px`,
         paddingRight: `${rightPushPx + basePadX}px`,
       }"
       @pointerdown.self="clearSelection"
     >
-      <TicketStatusBar />
-
       <div
         class="transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
         :style="stageScale < 1 ? { transform: `scale(${stageScale})`, transformOrigin: 'center center' } : undefined"

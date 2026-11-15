@@ -21,7 +21,7 @@ const { canUndo, canRedo, undo, redo } = useTicketHistory()
 
 <template>
   <header
-    class="relative z-10 mb-6 sm:mb-8 flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-[11px] tracking-wider uppercase text-slate-400 font-mono-code"
+    class="relative z-10 flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 text-[11px] tracking-wider uppercase text-slate-400 font-mono-code"
   >
     <!-- Interaction Mode Switch: Canvas Edit vs 3D Review -->
     <div

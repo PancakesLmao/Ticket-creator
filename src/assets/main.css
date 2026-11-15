@@ -395,6 +395,61 @@ body {
   transition: opacity 0.3s ease;
 }
 
+/* Split Dual Background Image Rules */
+.ticket-front .custom-ticket-bg--main.custom-ticket-bg--split {
+  left: 0;
+  right: auto;
+  width: 71%;
+  top: 0;
+  bottom: 0;
+}
+
+.ticket-back .custom-ticket-bg--main.custom-ticket-bg--split {
+  left: 29%;
+  right: 0;
+  width: 71%;
+  top: 0;
+  bottom: 0;
+}
+
+.ticket-front .custom-ticket-bg--stub {
+  left: 71%;
+  right: 0;
+  width: 29%;
+  top: 0;
+  bottom: 0;
+}
+
+.ticket-back .custom-ticket-bg--stub {
+  left: 0;
+  right: auto;
+  width: 29%;
+  top: 0;
+  bottom: 0;
+}
+
+@media (max-width: 639px) {
+  .ticket-front .custom-ticket-bg--main.custom-ticket-bg--split,
+  .ticket-back .custom-ticket-bg--main.custom-ticket-bg--split {
+    top: 0;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 68%;
+  }
+
+  .ticket-front .custom-ticket-bg--stub,
+  .ticket-back .custom-ticket-bg--stub {
+    top: 68%;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 32%;
+  }
+}
+
 /* Custom Base Color Selection Background Layer */
 .custom-ticket-color-bg {
   position: absolute;

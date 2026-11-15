@@ -1,8 +1,9 @@
 <script setup>
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
-import { Move, Lock } from '@lucide/vue'
+import { Move, Lock, RotateCcw } from '@lucide/vue'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
+import { getBlockTextBoxes } from '../models/ticketTextBoxes.js'
 
 const { ticket, interactionMode, isEditingField } = useTicketData()
 const {
@@ -20,6 +21,8 @@ const {
   notifyDragStart,
   notifyDragEnd,
   moveBlocksByDelta,
+  setTextBoxColor,
+  resetTextBoxColor,
 } = useCanvasDrag()
 
 const barRef = ref(null)
@@ -56,6 +59,44 @@ const selectionLabel = computed(() => {
   const singleId = selectedIds.value[0]
   return layerMap[singleId]?.label || singleId || 'Move'
 })
+
+const singleSelectedId = computed(() =>
+  selectedIds.value.length === 1 ? selectedIds.value[0] : null
+)
+
+const singleBlockTextBoxes = computed(() => {
+  if (!singleSelectedId.value) return []
+  return getBlockTextBoxes(singleSelectedId.value).filter(
+    (box) => !box.isRemoved(ticket)
+  )
+})
+
+const primaryTextBox = computed(() => singleBlockTextBoxes.value[0] || null)
+
+const currentTextColor = computed(() => {
+  if (!primaryTextBox.value) return '#ffffff'
+  const custom = ticket.customBoxColors?.[primaryTextBox.value.id]
+  if (custom) return custom
+  if (primaryTextBox.value.colorKey) {
+    return ticket[primaryTextBox.value.colorKey] || primaryTextBox.value.defaultColor || '#ffffff'
+  }
+  return primaryTextBox.value.defaultColor || '#ffffff'
+})
+
+const hasCustomColor = computed(() => {
+  if (!primaryTextBox.value) return false
+  return Boolean(ticket.customBoxColors?.[primaryTextBox.value.id])
+})
+
+function onColorChange(hex) {
+  if (!primaryTextBox.value) return
+  setTextBoxColor(primaryTextBox.value.id, hex)
+}
+
+function onResetColor() {
+  if (!primaryTextBox.value) return
+  resetTextBoxColor(primaryTextBox.value.id)
+}
 
 const barStyle = computed(() => {
   const rect = selectionRect.value
@@ -196,7 +237,7 @@ onUnmounted(() => {
       v-if="isVisible"
       ref="barRef"
       :style="barStyle"
-      class="fixed z-50 select-none"
+      class="fixed z-50 select-none flex items-center gap-1.5"
       role="toolbar"
       aria-label="Move selected field"
       @pointerdown.stop
@@ -221,6 +262,36 @@ onUnmounted(() => {
         <span>Move</span>
         <span class="text-slate-400 truncate max-w-[110px]">{{ selectionLabel }}</span>
       </button>
+
+      <!-- Easy-to-access per-textbox color picker pill -->
+      <div
+        v-if="primaryTextBox && !isSelectionLocked"
+        class="inline-flex items-center gap-1 h-6 px-1.5 rounded-lg bg-slate-950/90 border border-white/20 shadow-[0_6px_18px_rgba(0,0,0,0.55)] backdrop-blur-xl text-[10px] font-mono-code"
+        :title="`Text Color: ${currentTextColor} (applies to ${primaryTextBox.label})`"
+      >
+        <label class="flex items-center gap-1 cursor-pointer">
+          <span
+            class="w-3.5 h-3.5 rounded-full border border-white/40 shrink-0 shadow-sm transition-transform hover:scale-110"
+            :style="{ backgroundColor: currentTextColor }"
+          ></span>
+          <input
+            type="color"
+            :value="currentTextColor"
+            class="sr-only"
+            @input="onColorChange($event.target.value)"
+          />
+        </label>
+
+        <button
+          v-if="hasCustomColor"
+          type="button"
+          class="p-0.5 text-slate-400 hover:text-amber-300 transition-colors cursor-pointer"
+          title="Reset to default color"
+          @click="onResetColor"
+        >
+          <RotateCcw class="w-2.5 h-2.5" />
+        </button>
+      </div>
     </div>
   </Teleport>
 </template>

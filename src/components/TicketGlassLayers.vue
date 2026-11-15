@@ -1,7 +1,16 @@
 <script setup>
 import { useTicketData } from '../composables/useTicketData.js'
 
-const { bgMode, baseColor, customBgImage, bgImageStyle, bgOpacity, overlayOpacity } = useTicketData()
+const {
+  bgMode,
+  baseColor,
+  customBgImage,
+  bgImageStyle,
+  stubBgImageStyle,
+  hasStubImage,
+  bgOpacity,
+  overlayOpacity,
+} = useTicketData()
 </script>
 
 <template>
@@ -10,11 +19,19 @@ const { bgMode, baseColor, customBgImage, bgImageStyle, bgOpacity, overlayOpacit
   <div class="security-pattern" :style="{ opacity: overlayOpacity * 0.28 }"></div>
 
   <!-- Image Mode Background -->
-  <div
-    v-if="bgMode === 'image' && customBgImage"
-    class="custom-ticket-bg"
-    :style="bgImageStyle"
-  ></div>
+  <template v-if="bgMode === 'image'">
+    <div
+      v-if="customBgImage"
+      class="custom-ticket-bg custom-ticket-bg--main"
+      :class="{ 'custom-ticket-bg--split': hasStubImage }"
+      :style="bgImageStyle"
+    ></div>
+    <div
+      v-if="hasStubImage"
+      class="custom-ticket-bg custom-ticket-bg--stub"
+      :style="stubBgImageStyle"
+    ></div>
+  </template>
 
   <!-- Base Color Table Selection Mode Background -->
   <div

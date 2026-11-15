@@ -24,12 +24,17 @@ export function useTicketHistory() {
     foilMode,
     foilColor,
     customBgImage,
+    customStubBgImage,
     customLogoUrl,
     bgOpacity,
+    stubBgOpacity,
     overlayOpacity,
     bgPosX,
     bgPosY,
     bgZoom,
+    stubBgPosX,
+    stubBgPosY,
+    stubBgZoom,
     isLightBg,
   } = useTicketData()
 
@@ -52,6 +57,9 @@ export function useTicketHistory() {
     if (!ticketCopy.customBoxTexts) {
       ticketCopy.customBoxTexts = {}
     }
+    if (!ticketCopy.customBoxColors) {
+      ticketCopy.customBoxColors = {}
+    }
 
     return {
       ticket: ticketCopy,
@@ -63,12 +71,17 @@ export function useTicketHistory() {
         foilMode: foilMode.value,
         foilColor: foilColor.value,
         customBgImage: customBgImage.value,
+        customStubBgImage: customStubBgImage.value,
         customLogoUrl: customLogoUrl.value,
         bgOpacity: bgOpacity.value,
+        stubBgOpacity: stubBgOpacity.value,
         overlayOpacity: overlayOpacity.value,
         bgPosX: bgPosX.value,
         bgPosY: bgPosY.value,
         bgZoom: bgZoom.value,
+        stubBgPosX: stubBgPosX.value,
+        stubBgPosY: stubBgPosY.value,
+        stubBgZoom: stubBgZoom.value,
         isLightBg: isLightBg.value,
       },
       canvas: captureCanvasState(),
@@ -138,6 +151,9 @@ export function useTicketHistory() {
       customBoxTexts: savedTicket.customBoxTexts
         ? { ...savedTicket.customBoxTexts }
         : {},
+      customBoxColors: savedTicket.customBoxColors
+        ? { ...savedTicket.customBoxColors }
+        : {},
     })
 
     if (appearance) {
@@ -148,12 +164,17 @@ export function useTicketHistory() {
       foilMode.value = appearance.foilMode
       foilColor.value = appearance.foilColor
       customBgImage.value = appearance.customBgImage
+      customStubBgImage.value = appearance.customStubBgImage ?? null
       customLogoUrl.value = appearance.customLogoUrl
       bgOpacity.value = appearance.bgOpacity
+      stubBgOpacity.value = appearance.stubBgOpacity ?? appearance.bgOpacity ?? 0.85
       overlayOpacity.value = appearance.overlayOpacity
       bgPosX.value = appearance.bgPosX ?? 50
       bgPosY.value = appearance.bgPosY ?? 50
       bgZoom.value = appearance.bgZoom ?? 100
+      stubBgPosX.value = appearance.stubBgPosX ?? 50
+      stubBgPosY.value = appearance.stubBgPosY ?? 50
+      stubBgZoom.value = appearance.stubBgZoom ?? 100
       isLightBg.value = appearance.isLightBg
     }
 
@@ -231,12 +252,17 @@ export function useTicketHistory() {
           foilMode,
           foilColor,
           customBgImage,
+          customStubBgImage,
           customLogoUrl,
           bgOpacity,
+          stubBgOpacity,
           overlayOpacity,
           bgPosX,
           bgPosY,
           bgZoom,
+          stubBgPosX,
+          stubBgPosY,
+          stubBgZoom,
           isLightBg,
           elementOffsets,
           elementSizes,
