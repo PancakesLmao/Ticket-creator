@@ -8,6 +8,15 @@ import {
   getTextBoxById,
   getBlockTextBoxes,
 } from '../models/ticketTextBoxes.js'
+import {
+  CUSTOM_IMAGE_PRESETS,
+  CUSTOM_IMAGE_PRESET_LIST,
+  registerDynamicImageBox,
+  unregisterDynamicImageBox,
+  clearDynamicImages,
+  getImageBoxById,
+  getBlockImageBoxes,
+} from '../models/ticketImages.js'
 
 const presetHiddenIds = ref(new Set(['front-origin', 'front-route-line', 'front-dest']))
 
@@ -158,13 +167,28 @@ function buildDynamicBoxConfig(layer, boxDef) {
 
 function syncLayerBoxes(layer) {
   if (!layer?.boxes) return
-  layer.boxes.forEach((boxDef) => {
-    registerDynamicTextBox(buildDynamicBoxConfig(layer, boxDef))
-  })
+  if (layer.kind === 'image') {
+    layer.boxes.forEach((boxDef) => {
+      registerDynamicImageBox({
+        id: boxDef.id,
+        blockId: layer.id,
+        templateType: boxDef.templateType || layer.templateType || 'image',
+        label: boxDef.label || layer.label,
+        face: layer.face,
+        defaultWidth: layer.baseWidth,
+        defaultHeight: layer.baseHeight,
+      })
+    })
+  } else {
+    layer.boxes.forEach((boxDef) => {
+      registerDynamicTextBox(buildDynamicBoxConfig(layer, boxDef))
+    })
+  }
 }
 
 function syncAllCustomLayerBoxes() {
   clearDynamicTextBoxes()
+  clearDynamicImages()
   customLayers.forEach((layer) => {
     syncLayerBoxes(layer)
   })
@@ -565,14 +589,21 @@ function removeCustomLayerRecord(blockId, ticketArg = null) {
   const ticket = ticketArg || ticketAccessor()
   removed.boxes?.forEach((boxDef) => {
     unregisterDynamicTextBox(boxDef.id)
+    unregisterDynamicImageBox(boxDef.id)
     if (ticket?.customBoxTexts) {
       delete ticket.customBoxTexts[boxDef.id]
     }
     if (ticket?.customBoxColors) {
       delete ticket.customBoxColors[boxDef.id]
     }
+    if (ticket?.customBoxImages) {
+      delete ticket.customBoxImages[boxDef.id]
+    }
     if (ticket?.removedTextBoxes) {
       delete ticket.removedTextBoxes[boxDef.id]
+    }
+    if (ticket?.removedImages) {
+      delete ticket.removedImages[boxDef.id]
     }
   })
   delete layerState[blockId]
@@ -584,12 +615,28 @@ function removeCustomLayerRecord(blockId, ticketArg = null) {
 
 export function removeField(blockId) {
   detachMemberFromGroup(blockId)
+  const ticket = ticketAccessor()
   if (layerMap[blockId]?.isCustom) {
     removeCustomLayerRecord(blockId)
   } else {
     ensureLayerState(blockId).visible = false
+    if (ticket) {
+      getBlockImageBoxes(blockId).forEach((box) => box.remove(ticket))
+      getBlockTextBoxes(blockId).forEach((box) => box.remove(ticket))
+    }
   }
   selectedIds.value = selectedIds.value.filter((id) => id !== blockId)
+  closeContextMenu()
+  bumpLayout()
+}
+
+export function restoreField(blockId) {
+  const ticket = ticketAccessor()
+  ensureLayerState(blockId).visible = true
+  if (ticket) {
+    getBlockImageBoxes(blockId).forEach((box) => box.restore(ticket))
+    getBlockTextBoxes(blockId).forEach((box) => box.restore(ticket))
+  }
   closeContextMenu()
   bumpLayout()
 }
@@ -597,17 +644,35 @@ export function removeField(blockId) {
 export function removeSelectedFields() {
   const targets = [...selectedIds.value]
   if (targets.length === 0) return
+  const ticket = ticketAccessor()
   targets.forEach((id) => {
     detachMemberFromGroup(id)
     if (layerMap[id]?.isCustom) {
       removeCustomLayerRecord(id)
     } else {
       ensureLayerState(id).visible = false
+      if (ticket) {
+        getBlockImageBoxes(id).forEach((box) => box.remove(ticket))
+        getBlockTextBoxes(id).forEach((box) => box.remove(ticket))
+      }
     }
   })
   selectedIds.value = []
   closeContextMenu()
   bumpLayout()
+}
+
+export function removeImageBoxById(imageId, ticketArg = null) {
+  const ticket = ticketArg || ticketAccessor()
+  const box = getImageBoxById(imageId)
+  if (!box || !ticket) return false
+  box.remove(ticket)
+  if (box.blockId) {
+    removeField(box.blockId)
+  }
+  closeContextMenu()
+  bumpLayout()
+  return true
 }
 
 export function removeTextBoxById(textBoxId, ticketArg = null) {
@@ -888,6 +953,66 @@ export function addCustomTextBox(presetKey = 'headline', options = {}) {
   return layerId
 }
 
+export function addCustomImageBox(presetKey = 'photo', options = {}) {
+  const preset = CUSTOM_IMAGE_PRESETS[presetKey] || CUSTOM_IMAGE_PRESETS.photo
+  const face = options.face || activeLayerFace.value
+  if (face !== activeLayerFace.value) {
+    setActiveLayerFace(face)
+  }
+  const ticket = options.ticket || ticketAccessor()
+  const num = ++customCounter
+  const layerId = `custom-image-${num}`
+  const boxId = `${layerId}__img`
+
+  const existingCustomCount = customLayers.filter((l) => l.face === face).length
+  const cascade = existingCustomCount % 6
+  const baseX = Number.isFinite(options.baseX) ? Math.round(options.baseX) : 320 + cascade * 16
+  const baseY = Number.isFinite(options.baseY) ? Math.round(options.baseY) : 120 + cascade * 16
+
+  const layerRecord = {
+    id: layerId,
+    label: preset.label,
+    section: 'Custom',
+    face,
+    isCustom: true,
+    kind: 'image',
+    templateType: preset.templateType,
+    baseX,
+    baseY,
+    baseWidth: preset.defaultWidth,
+    baseHeight: preset.defaultHeight,
+    boxes: [
+      {
+        id: boxId,
+        sourceBoxId: null,
+        templateType: preset.templateType,
+        label: preset.label,
+      },
+    ],
+  }
+
+  customLayers.push(layerRecord)
+  syncDynamicLayerDefs()
+  syncLayerBoxes(layerRecord)
+
+  if (ticket && options.initialUrl) {
+    if (!ticket.customBoxImages) ticket.customBoxImages = {}
+    ticket.customBoxImages[boxId] = String(options.initialUrl)
+  }
+
+  layerState[layerId] = {
+    visible: true,
+    locked: false,
+    zIndex: getNextFaceZIndex(face),
+    groupId: null,
+  }
+
+  selectedIds.value = [layerId]
+  closeContextMenu()
+  bumpLayout()
+  return layerId
+}
+
 export function setCustomLayerStylePreset(layerId, presetKey) {
   const preset = CUSTOM_TEXT_STYLE_PRESETS[presetKey]
   const layer = customLayers.find((item) => item.id === layerId)
@@ -979,16 +1104,25 @@ function buildLayerCloneSpec(sourceId) {
       groupId: layerState[sourceId]?.groupId || null,
       boxes: (customSrc.boxes || []).map((boxDef, index) => {
         const liveBox = getTextBoxById(boxDef.id)
+        const liveImg = getImageBoxById(boxDef.id)
         return {
           keySuffix: boxDef.sourceBoxId || `box-${index}`,
           sourceBoxId: boxDef.sourceBoxId || null,
           stylePreset: boxDef.stylePreset || customSrc.stylePreset || null,
+          templateType: boxDef.templateType || customSrc.templateType || null,
           label: boxDef.label,
           value: liveBox
             ? liveBox.getValue(ticket)
             : ticket?.customBoxTexts?.[boxDef.id] ?? '',
+          imageUrl: liveImg
+            ? liveImg.getUrl(ticket)
+            : ticket?.customBoxImages?.[boxDef.id] ?? null,
           color: ticket?.customBoxColors?.[boxDef.id] || null,
-          removed: liveBox ? liveBox.isRemoved(ticket) : false,
+          removed: liveBox
+            ? liveBox.isRemoved(ticket)
+            : liveImg
+              ? liveImg.isRemoved(ticket)
+              : false,
         }
       }),
     }
@@ -1049,12 +1183,14 @@ function spawnClonedLayers(specs, deltaX, deltaY, { targetFace = null } = {}) {
       face: layerFace,
       isCustom: true,
       kind: spec.kind,
+      templateType: spec.templateType || null,
       stylePreset: spec.stylePreset || null,
       sourceType: spec.sourceType || null,
       sourceId: spec.sourceId || null,
       baseX: Math.round(spec.baseX + deltaX),
       baseY: Math.round(spec.baseY + deltaY),
       baseWidth: spec.baseWidth ?? null,
+      baseHeight: spec.baseHeight ?? null,
       boxes: clonedBoxes,
     }
 
@@ -1065,10 +1201,14 @@ function spawnClonedLayers(specs, deltaX, deltaY, { targetFace = null } = {}) {
     if (ticket) {
       if (!ticket.customBoxTexts) ticket.customBoxTexts = {}
       if (!ticket.customBoxColors) ticket.customBoxColors = {}
+      if (!ticket.customBoxImages) ticket.customBoxImages = {}
       if (!ticket.removedTextBoxes) ticket.removedTextBoxes = {}
       clonedBoxes.forEach((boxDef, idx) => {
         const srcBox = spec.boxes[idx]
         ticket.customBoxTexts[boxDef.id] = srcBox?.value ?? ''
+        if (srcBox?.imageUrl) {
+          ticket.customBoxImages[boxDef.id] = srcBox.imageUrl
+        }
         if (srcBox?.color) {
           ticket.customBoxColors[boxDef.id] = srcBox.color
         }
@@ -1536,8 +1676,10 @@ export function useCanvasDrag() {
     moveBlocksByDelta,
     nudgeSelected,
     removeField,
+    restoreField,
     removeSelectedFields,
     removeTextBoxById,
+    removeImageBoxById,
     toggleLayerVisibility,
     restoreAllFields,
     toggleLayerLock,
@@ -1548,6 +1690,9 @@ export function useCanvasDrag() {
     sendToBack,
     reorderLayerByDrop,
     addCustomTextBox,
+    addCustomImageBox,
+    CUSTOM_IMAGE_PRESETS,
+    CUSTOM_IMAGE_PRESET_LIST,
     setCustomLayerStylePreset,
     setTextBoxColor,
     resetTextBoxColor,

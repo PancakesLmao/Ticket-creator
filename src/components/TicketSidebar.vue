@@ -18,9 +18,12 @@ import {
   Move,
   Plus,
   Type,
+  QrCode,
+  Barcode,
 } from '@lucide/vue'
 import { iconMap } from '../constants/ticketIcons.js'
 import { CUSTOM_TEXT_PRESET_LIST } from '../models/ticketTextBoxes.js'
+import { ticketImages, getImageBoxById } from '../models/ticketImages.js'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
 
@@ -86,6 +89,15 @@ const {
   hasCustomOffsets,
   resetAllOffsets,
   addCustomTextBox,
+  addCustomImageBox,
+  customLayers,
+  selectedIds,
+  layoutVersion,
+  removeField,
+  restoreField,
+  ensureLayerState,
+  setActiveLayerFace,
+  bumpLayout,
   notifyDragStart,
   notifyDragEnd,
 } = useCanvasDrag()
@@ -93,6 +105,7 @@ const {
 const sectionOpen = reactive({
   presets: false,
   text: true,
+  images: true,
   emblem: false,
   background: true,
   foil: false,
@@ -148,9 +161,97 @@ function toggleAllSections() {
 const mainBgInputRef = ref(null)
 const stubBgInputRef = ref(null)
 const logoInputRef = ref(null)
+const imageBoxInputRef = ref(null)
+const imageBoxUploadTarget = ref(null)
 const bgPreviewRef = ref(null)
 const isDraggingBgPreview = ref(false)
 const selectedBgTarget = ref('main') // 'main' | 'stub'
+
+const canvasImageLayers = computed(() => {
+  void layoutVersion.value
+  const list = [
+    {
+      id: 'back-qr',
+      label: 'Back 2D QR Code',
+      face: 'back',
+      templateType: 'qr',
+      box: ticketImages.backQr,
+      isCustom: false,
+    },
+    {
+      id: 'back-barcode',
+      label: 'Back 1D Barcode',
+      face: 'back',
+      templateType: 'barcode',
+      box: ticketImages.backBarcode,
+      isCustom: false,
+    },
+  ]
+  customLayers.forEach((layer) => {
+    if (layer.kind === 'image') {
+      const box = getImageBoxById(layer.boxes?.[0]?.id)
+      if (box) {
+        list.push({
+          id: layer.id,
+          label: layer.label,
+          face: layer.face,
+          templateType: layer.templateType || 'image',
+          box,
+          isCustom: true,
+        })
+      }
+    }
+  })
+  return list
+})
+
+function triggerImageBoxUpload(box) {
+  imageBoxUploadTarget.value = box
+  imageBoxInputRef.value?.click()
+}
+
+function onImageBoxFileChange(e) {
+  const file = e.target.files?.[0]
+  if (!file || !imageBoxUploadTarget.value) return
+  const reader = new FileReader()
+  reader.onload = (event) => {
+    imageBoxUploadTarget.value.setUrl(ticket, event.target.result)
+    bumpLayout()
+  }
+  reader.readAsDataURL(file)
+  e.target.value = ''
+}
+
+function clearImageBoxUpload(box) {
+  if (!box) return
+  box.clearUrl(ticket)
+  bumpLayout()
+}
+
+function selectImageLayer(item) {
+  if (!item?.id) return
+  setActiveLayerFace(item.face)
+  selectedIds.value = [item.id]
+}
+
+function isImageLayerVisible(item) {
+  if (!item?.id) return false
+  const state = ensureLayerState(item.id)
+  const isRemoved = item.box?.isRemoved?.(ticket)
+  return state.visible !== false && !isRemoved
+}
+
+function toggleImageLayerVisibility(item) {
+  if (!item?.id) return
+  if (isImageLayerVisible(item)) {
+    removeField(item.id)
+  } else {
+    restoreField(item.id)
+    if (item.box?.restore) {
+      item.box.restore(ticket)
+    }
+  }
+}
 
 let bgPreviewStartX = 0
 let bgPreviewStartY = 0
@@ -335,6 +436,7 @@ function onCustomHexCommit(event) {
     <input ref="mainBgInputRef" type="file" accept="image/*" multiple class="hidden" @change="onMainBgChange" />
     <input ref="stubBgInputRef" type="file" accept="image/*" class="hidden" @change="onStubBgChange" />
     <input ref="logoInputRef" type="file" accept="image/*" class="hidden" @change="onLogoChange" />
+    <input ref="imageBoxInputRef" type="file" accept="image/*" class="hidden" @change="onImageBoxFileChange" />
 
     <!-- Sidebar Header & Quick Layer Panel Link -->
     <div class="p-4 sm:p-5 border-b border-white/10 space-y-2.5 shrink-0 bg-slate-900/40">
@@ -458,6 +560,142 @@ function onCustomHexCommit(event) {
               <Type class="w-3 h-3 text-cyan-300 shrink-0" />
               <span class="truncate">{{ styleItem.label }}</span>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section: Images & Graphics -->
+      <div class="rounded-xl border border-white/10 bg-white/[0.02] overflow-hidden transition-all">
+        <button
+          type="button"
+          class="w-full py-2.5 px-3 flex items-center justify-between text-left transition-colors hover:bg-white/5 cursor-pointer select-none"
+          @click="toggleSection('images')"
+        >
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-300">
+              Images &amp; Graphics
+            </span>
+            <span class="text-[9px] font-mono-code px-1.5 py-0.2 rounded bg-white/10 text-cyan-300 uppercase truncate">
+              {{ canvasImageLayers.length }} Elements
+            </span>
+          </div>
+          <ChevronDown
+            class="w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0"
+            :class="{ '-rotate-90 text-slate-500': !sectionOpen.images }"
+          />
+        </button>
+
+        <div v-show="sectionOpen.images" class="p-3 pt-1 border-t border-white/5 space-y-3">
+          <!-- Add Image Button -->
+          <div>
+            <button
+              type="button"
+              class="w-full py-2 px-2.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/40 text-cyan-200 font-mono-code text-[10px] font-bold tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              @click="addCustomImageBox('photo')"
+            >
+              <Plus class="w-3.5 h-3.5 shrink-0" />
+              <span>Add Image</span>
+            </button>
+          </div>
+
+          <!-- Graphic Elements List & Upload / Replace Controls -->
+          <div class="space-y-2 pt-1 border-t border-white/10">
+            <div class="text-[9px] font-mono-code uppercase tracking-wider text-slate-400 font-semibold">
+              Canvas Image Elements
+            </div>
+
+            <div class="space-y-1.5">
+              <div
+                v-for="item in canvasImageLayers"
+                :key="item.id"
+                class="p-2 rounded-lg border text-left transition-all"
+                :class="[
+                  selectedIds.includes(item.id)
+                    ? 'border-cyan-400/60 bg-cyan-950/30 ring-1 ring-cyan-400/40'
+                    : 'border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]',
+                ]"
+              >
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <div
+                    class="flex items-center gap-1.5 min-w-0 cursor-pointer"
+                    @click="selectImageLayer(item)"
+                  >
+                    <component
+                      :is="item.templateType === 'qr' ? QrCode : item.templateType === 'barcode' ? Barcode : ImageIcon"
+                      class="w-3.5 h-3.5 text-cyan-300 shrink-0"
+                    />
+                    <span class="text-[10px] font-mono-code font-bold text-slate-200 truncate">
+                      {{ item.label }}
+                    </span>
+                    <span class="text-[8px] font-mono-code px-1 py-0.2 rounded bg-white/10 text-slate-400 uppercase">
+                      {{ item.face }}
+                    </span>
+                  </div>
+
+                  <div class="flex items-center gap-1 shrink-0">
+                    <span
+                      v-if="!isImageLayerVisible(item)"
+                      class="text-[8px] font-mono-code px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 uppercase font-semibold"
+                    >
+                      Hidden
+                    </span>
+                    <button
+                      type="button"
+                      class="p-1 rounded cursor-pointer transition-colors"
+                      :class="[
+                        isImageLayerVisible(item)
+                          ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10'
+                          : 'text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10',
+                      ]"
+                      :title="isImageLayerVisible(item) ? 'Remove image from ticket' : 'Restore image to ticket'"
+                      @click.stop="toggleImageLayerVisibility(item)"
+                    >
+                      <Trash2 v-if="isImageLayerVisible(item)" class="w-3 h-3" />
+                      <RotateCcw v-else class="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Preview thumbnail & Upload / Replace buttons -->
+                <div class="flex items-center gap-2 pt-1 border-t border-white/5">
+                  <div class="w-10 h-10 rounded bg-transparent border border-white/15 shrink-0 flex items-center justify-center overflow-hidden p-0.5">
+                    <img
+                      v-if="item.box.getUrl(ticket)"
+                      :src="item.box.getUrl(ticket)"
+                      alt="Thumbnail"
+                      class="w-full h-full object-contain"
+                    />
+                    <component
+                      :is="item.templateType === 'qr' ? QrCode : item.templateType === 'barcode' ? Barcode : ImageIcon"
+                      v-else
+                      class="w-5 h-5 text-slate-500"
+                    />
+                  </div>
+
+                  <div class="flex-1 min-w-0 flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      class="py-1 px-2 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400/30 text-cyan-200 font-mono-code text-[9px] font-semibold cursor-pointer transition-colors flex items-center gap-1"
+                      @click="triggerImageBoxUpload(item.box)"
+                    >
+                      <Upload class="w-2.5 h-2.5" />
+                      <span>{{ item.box.getUrl(ticket) ? 'Replace' : 'Upload Image' }}</span>
+                    </button>
+
+                    <button
+                      v-if="item.box.getUrl(ticket)"
+                      type="button"
+                      class="py-1 px-1.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 hover:text-white font-mono-code text-[9px] cursor-pointer transition-colors flex items-center gap-1"
+                      title="Reset to default template"
+                      @click="clearImageBoxUpload(item.box)"
+                    >
+                      <RotateCcw class="w-2.5 h-2.5 text-amber-300" />
+                      <span>Reset</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

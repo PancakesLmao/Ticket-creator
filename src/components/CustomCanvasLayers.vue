@@ -1,8 +1,10 @@
 <script setup>
 import { computed } from 'vue'
 import { getTextBoxById } from '../models/ticketTextBoxes.js'
+import { getImageBoxById, ticketImages } from '../models/ticketImages.js'
 import CanvasDraggable from './CanvasDraggable.vue'
 import EditableText from './EditableText.vue'
+import EditableImage from './EditableImage.vue'
 import TicketEmblem from './TicketEmblem.vue'
 import TicketDataMatrixSvg from './TicketDataMatrixSvg.vue'
 import TicketRouteLine from './TicketRouteLine.vue'
@@ -24,6 +26,11 @@ const faceLayers = computed(() => customLayers.filter((layer) => layer.face === 
 function getBox(layer, index = 0) {
   const id = layer.boxes?.[index]?.id
   return id ? getTextBoxById(id) : null
+}
+
+function getImageBox(layer, index = 0) {
+  const id = layer.boxes?.[index]?.id
+  return id ? getImageBoxById(id) : null
 }
 
 function getBoxes(layer) {
@@ -73,6 +80,25 @@ function layerPositionStyle(layer) {
 
       <template v-else-if="layer.kind === 'textbox'">
         <EditableText v-if="getBox(layer, 0)" :box="getBox(layer, 0)" />
+      </template>
+
+      <template v-else-if="layer.kind === 'image'">
+        <div
+          class="min-w-0 flex items-center justify-center overflow-hidden bg-transparent"
+          :class="[
+            layer.templateType === 'qr'
+              ? 'p-2 rounded-xl bg-white shadow-[0_8px_25px_rgba(0,0,0,0.45)] border border-white/80'
+              : layer.templateType === 'barcode'
+                ? 'w-full h-11 rounded-lg bg-white/95 px-3 py-1.5 shadow-md'
+                : 'rounded-lg bg-transparent',
+          ]"
+          :style="{
+            width: layer.baseWidth ? `${layer.baseWidth}px` : 'auto',
+            height: layer.baseHeight ? `${layer.baseHeight}px` : 'auto',
+          }"
+        >
+          <EditableImage v-if="getImageBox(layer)" :box="getImageBox(layer)" />
+        </div>
       </template>
 
       <template v-else-if="layer.sourceType === 'emblem-header'">
@@ -128,7 +154,7 @@ function layerPositionStyle(layer) {
         <div
           class="p-2.5 rounded-xl bg-white shadow-[0_8px_25px_rgba(0,0,0,0.45)] border border-white/80 relative"
         >
-          <TicketDataMatrixSvg type="qr" />
+          <EditableImage :box="getImageBox(layer) || ticketImages.backQr" />
         </div>
       </template>
 
@@ -155,7 +181,7 @@ function layerPositionStyle(layer) {
 
       <template v-else-if="layer.sourceType === 'barcode'">
         <div class="w-full h-11 rounded-lg bg-white/95 px-3 py-1.5 flex items-center shadow-md">
-          <TicketDataMatrixSvg type="barcode" />
+          <EditableImage :box="getImageBox(layer) || ticketImages.backBarcode" />
         </div>
       </template>
 

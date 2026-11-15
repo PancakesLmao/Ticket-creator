@@ -1,11 +1,12 @@
 <script setup>
 import { computed } from 'vue'
 import { ticketTextBoxes } from '../models/ticketTextBoxes.js'
+import { ticketImages } from '../models/ticketImages.js'
 import TicketGlassLayers from './TicketGlassLayers.vue'
 import EditableText from './EditableText.vue'
+import EditableImage from './EditableImage.vue'
 import CanvasDraggable from './CanvasDraggable.vue'
 import TicketEmblem from './TicketEmblem.vue'
-import TicketDataMatrixSvg from './TicketDataMatrixSvg.vue'
 import CustomCanvasLayers from './CustomCanvasLayers.vue'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
@@ -43,7 +44,7 @@ const showBackBrandZone = computed(() => isAnyLayerVisible(BACK_BRAND_LAYER_IDS)
           block-id="back-qr"
           class="p-2.5 rounded-xl bg-white shadow-[0_8px_25px_rgba(0,0,0,0.45)] border border-white/80 relative"
         >
-          <TicketDataMatrixSvg type="qr" />
+          <EditableImage :box="ticketImages.backQr" />
         </CanvasDraggable>
 
         <CanvasDraggable block-id="back-qr-payload" class="max-w-full min-w-0">
@@ -109,7 +110,7 @@ const showBackBrandZone = computed(() => isAnyLayerVisible(BACK_BRAND_LAYER_IDS)
           block-id="back-barcode"
           class="flex-1 h-11 rounded-lg bg-white/95 px-3 py-1.5 flex items-center shadow-md"
         >
-          <TicketDataMatrixSvg type="barcode" />
+          <EditableImage :box="ticketImages.backBarcode" />
         </CanvasDraggable>
 
         <CanvasDraggable block-id="back-serial" class="text-right shrink-0">

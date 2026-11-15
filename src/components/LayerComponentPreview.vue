@@ -3,9 +3,11 @@ import { computed } from 'vue'
 import { Plane, Ticket, Layers } from '@lucide/vue'
 import { iconMap } from '../constants/ticketIcons.js'
 import { CUSTOM_TEXT_STYLE_PRESETS } from '../models/ticketTextBoxes.js'
+import { getImageBoxById, ticketImages } from '../models/ticketImages.js'
 import { useTicketData } from '../composables/useTicketData.js'
 import { useCanvasDrag } from '../composables/useCanvasDrag.js'
 import TicketDataMatrixSvg from './TicketDataMatrixSvg.vue'
+import EditableImage from './EditableImage.vue'
 
 const props = defineProps({
   layerId: {
@@ -31,6 +33,11 @@ const customLayer = computed(
 )
 const effectiveId = computed(() => customLayer.value?.sourceId || props.layerId)
 const isCustomTextbox = computed(() => customLayer.value?.kind === 'textbox')
+const isCustomImage = computed(() => customLayer.value?.kind === 'image')
+const customImageBox = computed(() => {
+  const boxId = customLayer.value?.boxes?.[0]?.id
+  return boxId ? getImageBoxById(boxId) : null
+})
 const customPreset = computed(() => {
   const key = customLayer.value?.stylePreset || 'headline'
   return CUSTOM_TEXT_STYLE_PRESETS[key] || CUSTOM_TEXT_STYLE_PRESETS.headline
@@ -167,6 +174,13 @@ const stubPair = computed(() => {
         class="w-full text-sm font-display font-bold tracking-tight silver-text-emboss truncate"
       >
         {{ customBoxText }}
+      </div>
+    </template>
+
+    <!-- Custom User-Added Image Box -->
+    <template v-else-if="isCustomImage">
+      <div class="w-full h-8 flex items-center justify-center p-0.5">
+        <EditableImage v-if="customImageBox" :box="customImageBox" image-class="w-full h-full object-contain" />
       </div>
     </template>
 
@@ -410,8 +424,8 @@ const stubPair = computed(() => {
 
     <!-- Back QR Code -->
     <div v-else-if="effectiveId === 'back-qr'" class="flex items-center gap-2.5 min-w-0 w-full">
-      <div class="p-1 rounded-md bg-white border border-white/80 shadow shrink-0">
-        <TicketDataMatrixSvg type="qr" svg-class="w-9 h-9 text-slate-950" />
+      <div class="p-1 rounded-md bg-white border border-white/80 shadow shrink-0 w-9 h-9 flex items-center justify-center overflow-hidden">
+        <EditableImage :box="ticketImages.backQr" image-class="w-full h-full object-contain" />
       </div>
       <div class="min-w-0">
         <div class="text-[9px] font-mono-code font-bold text-white uppercase">QR PASS CODE</div>
@@ -482,9 +496,9 @@ const stubPair = computed(() => {
     <!-- Back 1D Barcode -->
     <div
       v-else-if="effectiveId === 'back-barcode'"
-      class="w-full h-7 rounded bg-white/95 px-2 py-1 flex items-center shadow-sm"
+      class="w-full h-7 rounded bg-white/95 px-2 py-1 flex items-center shadow-sm overflow-hidden"
     >
-      <TicketDataMatrixSvg type="barcode" svg-class="w-full h-full" />
+      <EditableImage :box="ticketImages.backBarcode" image-class="w-full h-full object-contain" />
     </div>
 
     <!-- Back Serial -->
